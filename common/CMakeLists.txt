@@ -1,12 +1,9 @@
 idf_component_register(
     SRCS
-        
-    
+        "src/boot_button_ota_trigger.cpp"
     INCLUDE_DIRS
         "include"
-    
     REQUIRES
-        # esp_wifi
-    
+        driver
     PRIV_REQUIRES
 )
