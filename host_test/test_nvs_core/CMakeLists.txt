@@ -6,6 +6,7 @@ list(APPEND EXTRA_COMPONENT_DIRS
     "../../common"
     "../common"
     "../gtest"
+    "$ENV{IDF_PATH}/tools/mocks/driver"
 )
 
 set(COMPONENTS 

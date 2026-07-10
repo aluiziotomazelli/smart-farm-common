@@ -20,6 +20,14 @@ public:
     /** @copydoc esp_sleep_enable_timer_wakeup() */
     virtual esp_err_t enable_timer_wakeup(uint64_t time_in_us) = 0;
 
+    /**
+     * @brief Configures a GPIO pin to wake the system from deep sleep.
+     * @param gpio_num The GPIO pin number.
+     * @param wake_on_high True if wakeup should trigger on high level, false for low level.
+     * @return ESP_OK on success.
+     */
+    virtual esp_err_t enable_gpio_wakeup(int gpio_num, bool wake_on_high) = 0;
+
     /** @copydoc esp_deep_sleep_start() */
     virtual void deep_sleep_start() = 0;
 };
