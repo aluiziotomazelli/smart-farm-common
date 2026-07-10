@@ -59,6 +59,18 @@ enum class SensorStatus : uint8_t
     UNKNOWN            = 0xFF
 };
 
+/**
+ * @brief Represents the state of the battery based on voltage thresholds.
+ */
+enum class BatteryState : uint8_t
+{
+    UNKNOWN  = 0x00,
+    CRITICAL = 0x01,
+    LOW      = 0x02,
+    NORMAL   = 0x03,
+    FULL     = 0x04,
+};
+
 #pragma pack(push, 1)
 
 struct WaterLevelReport
@@ -66,6 +78,8 @@ struct WaterLevelReport
     uint16_t level_permille;
     float distance_cm;
     uint16_t battery_mv;
+    uint8_t battery_percent;
+    BatteryState battery_state;
     SensorStatus status; 
     bool float_switch_is_full;
     bool backup_mode_active;
