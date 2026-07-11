@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS
         "src/boot_button_ota_trigger.cpp"
-        "src/sm_hal_timer.cpp"
+        "src/hal_timer.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
