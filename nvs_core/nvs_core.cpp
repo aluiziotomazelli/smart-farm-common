@@ -6,7 +6,7 @@
 
 static const char* TAG = "NvsCore";
 
-NvsCore::NvsCore(const char* ns, IHalNvs& hal)
+NvsCore::NvsCore(const char* ns, idf_hals::INvsHAL& hal)
     : hal_(hal)
     , _namespace(ns)
 {
@@ -16,11 +16,11 @@ NvsCore::NvsCore(const char* ns, IHalNvs& hal)
 
 esp_err_t NvsCore::init_partition()
 {
-    esp_err_t err = hal_.hal_nvs_flash_init();
+    esp_err_t err = hal_.flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_LOGW(TAG, "NVS partition invalid, erasing");
-        hal_.hal_nvs_flash_erase();
-        err = hal_.hal_nvs_flash_init();
+        hal_.flash_erase();
+        err = hal_.flash_init();
     }
     return err;
 }
@@ -29,7 +29,7 @@ esp_err_t NvsCore::open_nvs(nvs_open_mode_t mode)
 {
     if (_isOpen)
         return ESP_OK; // Already open
-    esp_err_t err = hal_.hal_nvs_open(_namespace, mode, &_handle);
+    esp_err_t err = hal_.open(_namespace, mode, &_handle);
     if (err == ESP_OK)
         _isOpen = true;
     return err;
@@ -38,7 +38,7 @@ esp_err_t NvsCore::open_nvs(nvs_open_mode_t mode)
 void NvsCore::close_nvs()
 {
     if (_isOpen) {
-        hal_.hal_nvs_close(_handle);
+        hal_.close(_handle);
         _isOpen = false;
     }
 }
@@ -95,7 +95,7 @@ esp_err_t NvsCore::commit()
 
     // 3. Final commit to flash
     if (err == ESP_OK) {
-        err = hal_.hal_nvs_commit(_handle);
+        err = hal_.commit(_handle);
     }
 
     close_nvs();
@@ -136,9 +136,9 @@ esp_err_t NvsCore::erase_namespace()
     if (err != ESP_OK)
         return err;
 
-    err = hal_.hal_nvs_erase_all(_handle);
+    err = hal_.erase_all(_handle);
     if (err == ESP_OK) {
-        err = hal_.hal_nvs_commit(_handle);
+        err = hal_.commit(_handle);
     }
 
     close_nvs();

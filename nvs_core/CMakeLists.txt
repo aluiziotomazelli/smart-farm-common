@@ -6,4 +6,5 @@ idf_component_register(
     REQUIRES
         nvs_flash
         common
+        idf_hals
 )

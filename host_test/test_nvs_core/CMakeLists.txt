@@ -6,12 +6,14 @@ list(APPEND EXTRA_COMPONENT_DIRS
     "../../common"
     "../common"
     "../gtest"
+    "../../external"
     "$ENV{IDF_PATH}/tools/mocks/driver"
 )
 
 set(COMPONENTS 
     "main"
     "nvs_core"
+    "idf_hals"
 )
 
 

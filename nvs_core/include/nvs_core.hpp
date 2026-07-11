@@ -15,7 +15,7 @@
 class NvsCore : public INvsCore
 {
 protected:
-    IHalNvs    &hal_; ///< Reference to the NVS Hardware Abstraction Layer.
+    idf_hals::INvsHAL &hal_; ///< Reference to the NVS Hardware Abstraction Layer.
     CoreStorage core_;
 
     // NVS handle (kept open during load/commit for efficiency)
@@ -28,7 +28,7 @@ protected:
     {
         if (!_isOpen)
             return ESP_FAIL;
-        return hal_.hal_nvs_set_blob(_handle, key, &data, sizeof(T));
+        return hal_.set_blob(_handle, key, &data, sizeof(T));
     }
 
     template <typename T> esp_err_t loadStruct(const char *key, T &data)
@@ -37,7 +37,7 @@ protected:
             return ESP_FAIL;
         size_t required_size = sizeof(T);
         // Attempt to read. Return error if size mismatch or not found.
-        esp_err_t err = hal_.hal_nvs_get_blob(_handle, key, &data, &required_size);
+        esp_err_t err = hal_.get_blob(_handle, key, &data, &required_size);
         if (err == ESP_OK && required_size != sizeof(T))
             return ESP_ERR_NVS_INVALID_LENGTH;
         return err;
@@ -57,9 +57,9 @@ public:
     /**
      * @brief Construct a new NvsCore object.
      * @param ns The NVS namespace to use.
-     * @param hal Reference to the IHalNvs implementation.
+     * @param hal Reference to the INvsHAL implementation.
      */
-    NvsCore(const char *ns, IHalNvs &hal);
+    NvsCore(const char *ns, idf_hals::INvsHAL &hal);
     virtual ~NvsCore() override = default;
 
     // Initialize partition

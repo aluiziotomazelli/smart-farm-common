@@ -5,9 +5,11 @@ idf_component_register(
     INCLUDE_DIRS 
         "."
         "../../common"
+        "../../../external/idf_hals/mocks"
     REQUIRES 
         gtest
-        nvs_core 
+        nvs_core
+        idf_hals
         WHOLE_ARCHIVE
 )
 
