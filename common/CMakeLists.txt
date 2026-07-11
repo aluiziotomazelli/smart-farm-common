@@ -1,11 +1,8 @@
 idf_component_register(
     SRCS
         "src/boot_button_ota_trigger.cpp"
-        "src/hal_timer.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
         driver
-    PRIV_REQUIRES
-        esp_timer
 )
