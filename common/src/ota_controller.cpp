@@ -114,6 +114,9 @@ void OtaController::run_fsm()
         }
         else {
             ESP_LOGI(TAG, "Starting WiFi connection...");
+            // Note: wifi_.connect() is idempotent. If WiFi is already CONNECTING,
+            // CONNECTED_NO_IP, or CONNECTED_GOT_IP, the WiFiManager's validate_command
+            // returns Action::SKIP and connect() immediately returns ESP_OK.
             esp_err_t err = wifi_.connect(config_.wifi_connect_timeout_ms);
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "WiFi connected successfully.");
