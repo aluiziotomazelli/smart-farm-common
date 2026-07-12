@@ -42,13 +42,7 @@ esp_err_t OtaController::start(std::vector<IOtaTrigger*> triggers)
     }
 
     BaseType_t res = rtos_.task_create(
-        &OtaController::task_fn,
-        "ota_ctrl",
-        config_.task_stack_size,
-        this,
-        config_.task_priority,
-        &task_
-    );
+        &OtaController::task_fn, "ota_ctrl", config_.task_stack_size, this, config_.task_priority, &task_);
     return res == pdPASS ? ESP_OK : ESP_FAIL;
 }
 
@@ -76,6 +70,11 @@ bool OtaController::is_busy() const
 
 void OtaController::on_ota_triggered(OtaTriggerSource source)
 {
+    if (is_busy()) {
+        ESP_LOGW(TAG, "OTA trigger ignored, controller is busy (state=%d)", static_cast<int>(state_));
+        return;
+    }
+
     ESP_LOGI(TAG, "OTA triggered from source: %d", static_cast<int>(source));
     if (task_ != nullptr) {
         rtos_.task_notify(task_, 0, eNoAction);
@@ -104,7 +103,8 @@ void OtaController::run_fsm()
     case State::IDLE:
         break;
 
-    case State::WIFI_CONNECTING: {
+    case State::WIFI_CONNECTING:
+    {
         ESP_LOGI(TAG, "FSM: Connecting WiFi...");
         wifi_manager::State wifi_state = wifi_.get_state();
         if (wifi_state == wifi_manager::State::CONNECTED_GOT_IP) {
@@ -128,7 +128,8 @@ void OtaController::run_fsm()
         break;
     }
 
-    case State::OTA_RUNNING: {
+    case State::OTA_RUNNING:
+    {
         ESP_LOGI(TAG, "FSM: Starting OTA...");
         if (!ota_.start_ota()) {
             ESP_LOGE(TAG, "OTA Manager start rejected.");
@@ -166,7 +167,8 @@ void OtaController::run_fsm()
         break;
     }
 
-    case State::OTA_FAILED: {
+    case State::OTA_FAILED:
+    {
         ESP_LOGI(TAG, "FSM: OTA Failed. Performing cleanup...");
         if (connected_by_us_) {
             ESP_LOGI(TAG, "Disconnecting WiFi session established by us...");
