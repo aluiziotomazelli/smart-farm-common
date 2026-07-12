@@ -3,36 +3,34 @@
 
 #include "esp_err.h"
 
-/**
- * @class IOtaTrigger
- * @brief Abstract interface for OTA trigger sources.
- *
- * Implementations can be physical buttons, ESP-NOW command queues, or other network protocols.
- * The orchestrator polls this interface to decide when to initiate the OTA firmware update.
- */
+enum class OtaTriggerSource
+{
+    BUTTON,
+    ESPNOW
+};
+
+class IOtaTriggerListener
+{
+public:
+    virtual void on_ota_triggered(OtaTriggerSource source) = 0;
+    virtual ~IOtaTriggerListener() = default;
+};
+
 class IOtaTrigger
 {
 public:
     virtual ~IOtaTrigger() = default;
 
     /**
-     * @brief Initialize the trigger hardware or software source.
+     * @brief Arm/register the listener for OTA trigger events.
      *
-     * @return
-     *     - ESP_OK: Initialization successful.
-     *     - Other: Error code from the underlying driver or peripheral setup.
+     * @param listener The listener callback implementation.
+     * @return ESP_OK on success, error code otherwise.
      */
-    virtual esp_err_t init() = 0;
+    virtual esp_err_t arm(IOtaTriggerListener& listener) = 0;
 
     /**
-     * @brief Check if an OTA trigger event has occurred.
-     *
-     * This method is polled by the controller. Implementations should handle debouncing
-     * or latching/clearing events as appropriate.
-     *
-     * @return
-     *     - true: An OTA update has been requested.
-     *     - false: No trigger event detected.
+     * @brief Disarm/unregister the listener.
      */
-    virtual bool is_triggered() = 0;
+    virtual void disarm() = 0;
 };
