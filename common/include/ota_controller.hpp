@@ -1,7 +1,9 @@
-// common/include/ota_controller.hpp
 #pragma once
 
 #include <vector>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "interfaces/i_ota_trigger.hpp"
 #include "interfaces/i_wifi_manager.hpp"
@@ -21,6 +23,14 @@ struct OtaControllerConfig
 class OtaController : public IOtaTriggerListener
 {
 public:
+    enum class State
+    {
+        IDLE,
+        WIFI_CONNECTING,
+        OTA_RUNNING,
+        OTA_FAILED
+    };
+
     OtaController(
         wifi_manager::IWiFiManager& wifi,
         IOtaManager& ota,
@@ -38,13 +48,7 @@ public:
     void on_ota_triggered(OtaTriggerSource source) override;
 
 private:
-    enum class State
-    {
-        IDLE,
-        WIFI_CONNECTING,
-        OTA_RUNNING,
-        OTA_FAILED
-    };
+    friend class OtaControllerTest;
 
     static void task_fn(void* arg);
     void run_fsm();

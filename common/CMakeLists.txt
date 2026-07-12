@@ -11,4 +11,5 @@ idf_component_register(
         idf_hals
         wifi_manager
         ota_manager
+        esp_timer
 )
