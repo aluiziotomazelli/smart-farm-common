@@ -5,6 +5,7 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
 
+#include <algorithm>
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -34,6 +35,12 @@ esp_err_t OtaController::start(std::vector<IOtaTrigger*> triggers)
         return ESP_ERR_INVALID_STATE;
     }
 
+    task_done_semaphore_ = rtos_.semaphore_create_binary();
+    if (task_done_semaphore_ == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    stop_requested_ = false;
     triggers_ = std::move(triggers);
     for (auto* trigger : triggers_) {
         if (trigger) {
@@ -43,7 +50,18 @@ esp_err_t OtaController::start(std::vector<IOtaTrigger*> triggers)
 
     BaseType_t res = rtos_.task_create(
         &OtaController::task_fn, "ota_ctrl", config_.task_stack_size, this, config_.task_priority, &task_);
-    return res == pdPASS ? ESP_OK : ESP_FAIL;
+    if (res != pdPASS) {
+        rtos_.semaphore_delete(task_done_semaphore_);
+        task_done_semaphore_ = nullptr;
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+uint32_t OtaController::compute_stop_timeout_ms() const
+{
+    constexpr uint32_t SAFETY_MARGIN_MS = 2000;
+    return std::max(config_.wifi_connect_timeout_ms, kOtaCancelWatchdogMs) + SAFETY_MARGIN_MS;
 }
 
 void OtaController::stop()
@@ -55,12 +73,31 @@ void OtaController::stop()
     }
     triggers_.clear();
 
-    if (task_ != nullptr) {
-        rtos_.task_delete(task_);
-        task_ = nullptr;
+    TaskHandle_t task_to_stop = task_;
+
+    if (task_to_stop != nullptr) {
+        ESP_LOGI(TAG, "Requesting OTA task to stop gracefully...");
+        rtos_.task_notify(task_to_stop, NOTIFY_TASK_TO_STOP, eSetBits);
+
+        const uint32_t stop_timeout_ms = compute_stop_timeout_ms();
+        bool exited_cleanly =
+            rtos_.semaphore_take(task_done_semaphore_, pdMS_TO_TICKS(stop_timeout_ms)) == pdPASS;
+
+        if (!exited_cleanly) {
+            ESP_LOGW(TAG, "Task stop timed out after %lums. Forcing deletion.", (unsigned long)stop_timeout_ms);
+            rtos_.task_delete(task_to_stop);
+        }
     }
+
+    if (task_done_semaphore_ != nullptr) {
+        rtos_.semaphore_delete(task_done_semaphore_);
+        task_done_semaphore_ = nullptr;
+    }
+
+    task_ = nullptr;
     state_ = State::IDLE;
     connected_by_us_ = false;
+    stop_requested_ = false;
 }
 
 bool OtaController::is_busy() const
@@ -77,24 +114,41 @@ void OtaController::on_ota_triggered(OtaTriggerSource source)
 
     ESP_LOGI(TAG, "OTA triggered from source: %d", static_cast<int>(source));
     if (task_ != nullptr) {
-        rtos_.task_notify(task_, 0, eNoAction);
+        rtos_.task_notify(task_, NOTIFY_OTA_TRIGGER, eSetBits);
     }
 }
 
 void OtaController::task_fn(void* arg)
 {
     auto* self = static_cast<OtaController*>(arg);
-    while (true) {
-        uint32_t val = 0;
-        self->rtos_.task_notify_wait(0, 0, &val, portMAX_DELAY);
+    bool should_stop = false;
 
-        if (self->state_ == State::IDLE) {
-            self->state_ = State::WIFI_CONNECTING;
-            while (self->state_ != State::IDLE) {
-                self->run_fsm();
+    while (!should_stop) {
+        uint32_t notifications = 0;
+        TickType_t wait_ticks = (self->state_ == State::IDLE) ? idf_hals::PORT_MAX_DELAY : 0;
+
+        if (self->rtos_.task_notify_wait(0, NOTIFY_ALL, &notifications, wait_ticks) == pdTRUE) {
+            if (notifications & NOTIFY_TASK_TO_STOP) {
+                self->stop_requested_ = true;
+            }
+            if ((notifications & NOTIFY_OTA_TRIGGER) && self->state_ == State::IDLE) {
+                self->state_ = State::WIFI_CONNECTING;
             }
         }
+
+        if (self->stop_requested_ && self->state_ == State::IDLE) {
+            should_stop = true;
+            break;
+        }
+
+        if (self->state_ != State::IDLE) {
+            self->run_fsm();
+        }
     }
+
+    ESP_LOGI(TAG, "OTA task exiting cleanly.");
+    self->rtos_.semaphore_give(self->task_done_semaphore_);
+    self->rtos_.task_delete(nullptr);
 }
 
 void OtaController::run_fsm()
@@ -144,6 +198,8 @@ void OtaController::run_fsm()
         int64_t start_ms = esp_timer_get_time() / 1000;
         int64_t timeout_ms = config_.ota_watchdog_timeout_ms;
 
+        bool cancel_requested = false;
+
         while (true) {
             OtaStatus status = ota_.get_status();
             if (status == OtaStatus::READY_TO_RESTART) {
@@ -157,9 +213,21 @@ void OtaController::run_fsm()
                 break;
             }
 
+            uint32_t pending = 0;
+            rtos_.task_notify_wait(0, NOTIFY_ALL, &pending, 0);
+            if ((pending & NOTIFY_TASK_TO_STOP) && !cancel_requested) {
+                ESP_LOGW(TAG, "Stop requested mid-OTA. Cancelling cooperatively...");
+                ota_.cancel_ota();
+                cancel_requested = true;
+                start_ms = esp_timer_get_time() / 1000;
+                timeout_ms = kOtaCancelWatchdogMs;
+            }
+
             int64_t elapsed_ms = (esp_timer_get_time() / 1000) - start_ms;
             if (elapsed_ms > timeout_ms) {
-                ESP_LOGE(TAG, "OTA overall watchdog timeout reached. Cancelling OTA.");
+                ESP_LOGE(TAG, "%s", cancel_requested
+                    ? "OTA cancel watchdog expired."
+                    : "OTA overall watchdog timeout reached. Cancelling OTA.");
                 ota_.cancel_ota();
                 state_ = State::OTA_FAILED;
                 break;
