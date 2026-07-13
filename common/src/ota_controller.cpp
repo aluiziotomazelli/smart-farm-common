@@ -61,7 +61,7 @@ esp_err_t OtaController::start(std::vector<IOtaTrigger*> triggers)
 uint32_t OtaController::compute_stop_timeout_ms() const
 {
     constexpr uint32_t SAFETY_MARGIN_MS = 2000;
-    return std::max(config_.wifi_connect_timeout_ms, kOtaCancelWatchdogMs) + SAFETY_MARGIN_MS;
+    return std::max(config_.wifi_connect_timeout_ms, OTA_CANCEL_WATCHDOG_MS) + SAFETY_MARGIN_MS;
 }
 
 void OtaController::stop()
@@ -80,8 +80,7 @@ void OtaController::stop()
         rtos_.task_notify(task_to_stop, NOTIFY_TASK_TO_STOP, eSetBits);
 
         const uint32_t stop_timeout_ms = compute_stop_timeout_ms();
-        bool exited_cleanly =
-            rtos_.semaphore_take(task_done_semaphore_, pdMS_TO_TICKS(stop_timeout_ms)) == pdPASS;
+        bool exited_cleanly = rtos_.semaphore_take(task_done_semaphore_, pdMS_TO_TICKS(stop_timeout_ms)) == pdPASS;
 
         if (!exited_cleanly) {
             ESP_LOGW(TAG, "Task stop timed out after %lums. Forcing deletion.", (unsigned long)stop_timeout_ms);
@@ -220,14 +219,16 @@ void OtaController::run_fsm()
                 ota_.cancel_ota();
                 cancel_requested = true;
                 start_ms = esp_timer_get_time() / 1000;
-                timeout_ms = kOtaCancelWatchdogMs;
+                timeout_ms = OTA_CANCEL_WATCHDOG_MS;
             }
 
             int64_t elapsed_ms = (esp_timer_get_time() / 1000) - start_ms;
             if (elapsed_ms > timeout_ms) {
-                ESP_LOGE(TAG, "%s", cancel_requested
-                    ? "OTA cancel watchdog expired."
-                    : "OTA overall watchdog timeout reached. Cancelling OTA.");
+                ESP_LOGE(
+                    TAG,
+                    "%s",
+                    cancel_requested ? "OTA cancel watchdog expired."
+                                     : "OTA overall watchdog timeout reached. Cancelling OTA.");
                 ota_.cancel_ota();
                 state_ = State::OTA_FAILED;
                 break;

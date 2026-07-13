@@ -18,10 +18,10 @@
  */
 struct OtaControllerConfig
 {
-    uint32_t wifi_connect_timeout_ms = 15000;   ///< Max time to wait for WiFi connection (ms)
-    uint32_t ota_watchdog_timeout_ms = 120000;  ///< Overall watchdog timeout for OTA process (ms)
-    uint32_t task_stack_size = 4096;            ///< Stack size for the internal FSM task
-    uint8_t task_priority = 5;                  ///< Priority for the internal FSM task
+    uint32_t wifi_connect_timeout_ms = 15000;  ///< Max time to wait for WiFi connection (ms)
+    uint32_t ota_watchdog_timeout_ms = 120000; ///< Overall watchdog timeout for OTA process (ms)
+    uint32_t task_stack_size = 4096;           ///< Stack size for the internal FSM task
+    uint8_t task_priority = 5;                 ///< Priority for the internal FSM task
 };
 
 /**
@@ -38,10 +38,10 @@ public:
      */
     enum class State
     {
-        IDLE,             ///< Controller is idle, waiting for a trigger event
-        WIFI_CONNECTING,  ///< WiFi connection is being established
-        OTA_RUNNING,      ///< OTA update is running in background via OtaManager
-        OTA_FAILED        ///< OTA run failed, performing cleanup
+        IDLE,            ///< Controller is idle, waiting for a trigger event
+        WIFI_CONNECTING, ///< WiFi connection is being established
+        OTA_RUNNING,     ///< OTA update is running in background via OtaManager
+        OTA_FAILED       ///< OTA run failed, performing cleanup
     };
 
     /**
@@ -89,10 +89,10 @@ public:
     void on_ota_triggered(OtaTriggerSource source) override;
 
 private:
-    static constexpr uint32_t NOTIFY_OTA_TRIGGER    = (1 << 0); ///< Task notification bit for triggering OTA
-    static constexpr uint32_t NOTIFY_TASK_TO_STOP   = (1 << 1); ///< Task notification bit for stopping task
-    static constexpr uint32_t NOTIFY_ALL            = NOTIFY_OTA_TRIGGER | NOTIFY_TASK_TO_STOP;
-    static constexpr uint32_t kOtaCancelWatchdogMs  = 10000;    ///< Watchdog applied after cancel_ota() (ms)
+    static constexpr uint32_t NOTIFY_OTA_TRIGGER = (1 << 0);  ///< Task notification bit for triggering OTA
+    static constexpr uint32_t NOTIFY_TASK_TO_STOP = (1 << 1); ///< Task notification bit for stopping task
+    static constexpr uint32_t NOTIFY_ALL = NOTIFY_OTA_TRIGGER | NOTIFY_TASK_TO_STOP;
+    static constexpr uint32_t OTA_CANCEL_WATCHDOG_MS = 10000; ///< Watchdog applied after cancel_ota() (ms)
 
     friend class OtaControllerTest;
 
