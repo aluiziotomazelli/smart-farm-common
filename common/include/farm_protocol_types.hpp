@@ -1,18 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
-using NodeId = uint8_t;
-using NodeType = uint8_t;
-using PayloadType = uint8_t;
-
-constexpr size_t APP_MAX_PAYLOAD_SIZE = 230;
+namespace farm {
 
 /**
  * @brief Application-specific Node IDs for the Farm project.
- * These are mapped to the generic NodeId (uint8_t).
  */
-enum class FarmNodeId : NodeId
+enum class NodeId : uint8_t
 {
     UNKNOWN      = 0x00,
     HUB          = 0x01, // Reserved: Central Hub
@@ -26,7 +22,7 @@ enum class FarmNodeId : NodeId
 /**
  * @brief Application-specific Node Types for the Farm project.
  */
-enum class FarmNodeType : NodeType
+enum class NodeType : uint8_t
 {
     UNKNOWN  = 0x00,
     HUB      = 0x01, // Reserved: Central Hub
@@ -35,14 +31,26 @@ enum class FarmNodeType : NodeType
 };
 
 /**
- * @brief Application-specific Payload Types for the Farm project.
+ * @brief Application-specific Data Payload Types (MessageType::DATA) for the Farm project.
+ * Range: 0x01–0x3F
  */
-enum class FarmPayloadType : PayloadType
+enum class PayloadType : uint8_t
 {
-    WATER_LEVEL_REPORT = 0x01,
+    WATER_LEVEL_REPORT  = 0x01,
     SOLAR_SENSOR_REPORT = 0x02,
-    WEATHER_REPORT = 0x03,
-    LOAD_CONTROLLER_STATUS = 0x04,
+    WEATHER_REPORT      = 0x03,
+    PUMP_CONTROL_STATUS = 0x04,
+};
+
+/**
+ * @brief Application-specific Command Types (MessageType::COMMAND) for the Farm project.
+ * Range: 0x40–0xFF (0x01–0x3F is reserved for generic transport commands in espnow::CommandType).
+ */
+enum class CommandType : uint8_t
+{
+    SLEEP_OVERRIDE = 0x40, ///< Instructs a sleeping node to override local sleep calculation
+    PUMP_TURN_ON   = 0x41, ///< Instructs the pump actuator to activate
+    PUMP_TURN_OFF  = 0x42, ///< Instructs the pump actuator to deactivate
 };
 
 /**
@@ -56,7 +64,7 @@ enum class SensorStatus : uint8_t
     ERROR_OUT_OF_RANGE = 0x03,
     ERROR_UNSTABLE     = 0x04,
     ERROR_HARDWARE     = 0x05,
-    UNKNOWN            = 0xFF
+    UNKNOWN            = 0xFF,
 };
 
 /**
@@ -75,14 +83,14 @@ enum class BatteryState : uint8_t
 
 struct WaterLevelReport
 {
-    uint16_t level_permille;
-    float distance_cm;
-    uint16_t battery_mv;
-    uint8_t battery_percent;
+    uint16_t     level_permille;
+    float        distance_cm;
+    uint16_t     battery_mv;
+    uint8_t      battery_percent;
     BatteryState battery_state;
-    SensorStatus status; 
-    bool float_switch_is_full;
-    bool backup_mode_active;
+    SensorStatus status;
+    bool         float_switch_is_full;
+    bool         backup_mode_active;
 };
 
 struct SolarSensorReport
@@ -92,8 +100,25 @@ struct SolarSensorReport
     uint16_t power_mw;
 };
 
+struct SleepOverrideCommand
+{
+    uint32_t sleep_time_s; ///< Requested sleep duration in seconds (0 = cancel override)
+};
+
+struct PumpCommand
+{
+    CommandType action;     ///< PUMP_TURN_ON or PUMP_TURN_OFF
+    uint16_t    watchdog_s; ///< Auto-off if hub is silent for this duration (safety)
+    uint8_t     circuit_id; ///< Which pump/circuit (0 = default, for future expansion)
+};
+
 #pragma pack(pop)
 
+} // namespace farm
+
 // Validations to ensure that no payload exceeds the ESP-NOW payload limits
-static_assert(sizeof(WaterLevelReport) <= APP_MAX_PAYLOAD_SIZE, "WaterLevelReport payload is too large");
-static_assert(sizeof(SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE, "SolarSensorReport payload is too large");
+static constexpr size_t APP_MAX_PAYLOAD_SIZE = 230;
+static_assert(sizeof(farm::WaterLevelReport) <= APP_MAX_PAYLOAD_SIZE, "WaterLevelReport payload is too large");
+static_assert(sizeof(farm::SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE, "SolarSensorReport payload is too large");
+static_assert(sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE, "SleepOverrideCommand payload is too large");
+static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload is too large");

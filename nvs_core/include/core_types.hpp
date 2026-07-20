@@ -37,8 +37,8 @@ struct CoreStorage
     uint32_t schema_version;
 
     // Identity (inline, no separate struct)
-    FarmNodeId node_id;
-    FarmNodeType node_type;
+    farm::NodeId node_id;
+    farm::NodeType node_type;
     uint8_t hw_revision;
 
     // Firmware

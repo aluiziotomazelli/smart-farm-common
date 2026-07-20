@@ -106,8 +106,8 @@ void NvsCore::apply_core_defaults()
 {
     memset(&core_, 0, sizeof(CoreStorage));
     core_.schema_version = CORE_SCHEMA_VERSION;
-    core_.node_type = FarmNodeType::UNKNOWN; 
-    core_.node_id = FarmNodeId(0);
+    core_.node_type = farm::NodeType::UNKNOWN; 
+    core_.node_id = farm::NodeId::UNKNOWN;
     core_.hw_revision = 1;
     core_.fw_major = 0;
     core_.fw_minor = 1;
