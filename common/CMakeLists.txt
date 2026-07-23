@@ -2,7 +2,6 @@ idf_component_register(
     SRCS
         "src/button_ota_trigger.cpp"
         "src/espnow_ota_trigger.cpp"
-        "src/ota_controller.cpp"
     INCLUDE_DIRS
         "include"
         "include/interfaces"
