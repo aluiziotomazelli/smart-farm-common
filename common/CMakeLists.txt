@@ -8,7 +8,5 @@ idf_component_register(
     REQUIRES
         driver
         idf_hals
-        wifi_manager
-        ota_manager
         esp_timer
 )
