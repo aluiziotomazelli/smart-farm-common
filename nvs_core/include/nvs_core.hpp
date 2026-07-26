@@ -44,14 +44,15 @@ protected:
     }
 
     // Pure virtual methods to be implemented by the application
-    virtual esp_err_t loadAppData()    = 0;
-    virtual esp_err_t saveAppData()    = 0;
-    virtual void      setAppDefaults() = 0;
+    virtual esp_err_t loadAppData()                     = 0;
+    virtual esp_err_t saveAppData(bool force_nvs = false) = 0;
+    virtual void      setAppDefaults()                = 0;
 
 private:
     void      apply_core_defaults();
     esp_err_t open_nvs(nvs_open_mode_t mode);
     void      close_nvs();
+    uint32_t  calculate_crc(const CoreStorage &storage);
 
 public:
     /**
@@ -65,11 +66,11 @@ public:
     // Initialize partition
     esp_err_t init_partition() override;
 
-    // Master flow: Load Core + App
+    // Master flow: Load Core + App (from RTC with NVS fallback)
     esp_err_t load() override;
 
-    // Master flow: Commit Core + App
-    esp_err_t commit() override;
+    // Master flow: Save Core + App (RTC first, NVS if dirty or force_nvs)
+    esp_err_t save(bool force_nvs = false) override;
 
     // Access to common data
     CoreStorage &getCoreData()

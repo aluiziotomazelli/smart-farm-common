@@ -23,9 +23,10 @@ public:
     virtual esp_err_t load() = 0;
 
     /**
-     * @brief Commits core and application data to NVS.
+     * @brief Saves data to RTC memory, and optionally commits to NVS flash if force_nvs is true or data is dirty.
+     * @param force_nvs Force write to NVS flash regardless of dirty state.
      */
-    virtual esp_err_t commit() = 0;
+    virtual esp_err_t save(bool force_nvs = false) = 0;
 
     /**
      * @brief Resets the namespace to default values.
