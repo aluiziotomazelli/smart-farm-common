@@ -19,34 +19,34 @@ protected:
     CoreStorage core_;
 
     // NVS handle (kept open during load/commit for efficiency)
-    nvs_handle_t _handle = 0;
-    bool         _isOpen = false;
-    const char  *_namespace;
+    nvs_handle_t handle_ = 0;
+    bool         is_open_ = false;
+    const char  *namespace_;
 
     // Helpers for derived classes
-    template <typename T> esp_err_t saveStruct(const char *key, const T &data)
+    template <typename T> esp_err_t save_struct(const char *key, const T &data)
     {
-        if (!_isOpen)
+        if (!is_open_)
             return ESP_FAIL;
-        return hal_.set_blob(_handle, key, &data, sizeof(T));
+        return hal_.set_blob(handle_, key, &data, sizeof(T));
     }
 
-    template <typename T> esp_err_t loadStruct(const char *key, T &data)
+    template <typename T> esp_err_t load_struct(const char *key, T &data)
     {
-        if (!_isOpen)
+        if (!is_open_)
             return ESP_FAIL;
         size_t required_size = sizeof(T);
         // Attempt to read. Return error if size mismatch or not found.
-        esp_err_t err = hal_.get_blob(_handle, key, &data, &required_size);
+        esp_err_t err = hal_.get_blob(handle_, key, &data, &required_size);
         if (err == ESP_OK && required_size != sizeof(T))
             return ESP_ERR_NVS_INVALID_LENGTH;
         return err;
     }
 
     // Pure virtual methods to be implemented by the application
-    virtual esp_err_t loadAppData()                     = 0;
-    virtual esp_err_t saveAppData(bool force_nvs = false) = 0;
-    virtual void      setAppDefaults()                = 0;
+    virtual esp_err_t load_app_data()                     = 0;
+    virtual esp_err_t save_app_data(bool force_nvs = false) = 0;
+    virtual void      set_app_defaults()                = 0;
 
 private:
     void      apply_core_defaults();
@@ -73,7 +73,12 @@ public:
     esp_err_t save(bool force_nvs = false) override;
 
     // Access to common data
-    CoreStorage &getCoreData()
+    CoreStorage &get_core_data()
+    {
+        return core_;
+    }
+
+    const CoreStorage &get_core_data() const
     {
         return core_;
     }
@@ -84,14 +89,17 @@ public:
     // Erases everything in the namespace
     esp_err_t erase_namespace() override;
 
+    // Invalidates the in-memory RTC cache
+    void invalidate_rtc_cache();
+
 public:
-    template <typename T> esp_err_t loadStructPublic(const char *key, T &data)
+    template <typename T> esp_err_t load_struct_public(const char *key, T &data)
     {
-        return loadStruct(key, data);
+        return load_struct(key, data);
     }
 
-    template <typename T> esp_err_t saveStructPublic(const char *key, const T &data)
+    template <typename T> esp_err_t save_struct_public(const char *key, const T &data)
     {
-        return saveStruct(key, data);
+        return save_struct(key, data);
     }
 };

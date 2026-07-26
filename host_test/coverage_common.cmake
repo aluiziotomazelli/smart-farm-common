@@ -41,6 +41,7 @@ macro(setup_gtest_coverage PROJECT_NAME EXECUTABLE_NAME)
         # 4. Filters data to include only the component's source and include directories
         # 5. Generates an HTML report
         add_custom_target(generate_coverage
+            DEPENDS ${EXECUTABLE_NAME}
             COMMAND find . -name "*.gcda" -delete
             COMMAND ${CMAKE_COMMAND} -E rm -rf ${COVERAGE_DIR}
             COMMAND ./${EXECUTABLE_NAME}

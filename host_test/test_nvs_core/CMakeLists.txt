@@ -22,10 +22,10 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(test_nvs_core)
 
 # Set the patterns to extract from the binary
-set(EXTRACT_PATTERNS_test_nvs_core "*/components/nvs_core/*")
+set(EXTRACT_PATTERNS_test_nvs_core "*nvs_core/*")
 
 # Set the patterns to remove from the binary
-set(REMOVE_PATTERNS_test_nvs_core "*/components/nvs_core/include/*")
+set(REMOVE_PATTERNS_test_nvs_core "*nvs_core/include/*" "*host_test/*" "*build/*")
 
 # Include common coverage logic
 include("../coverage_common.cmake")

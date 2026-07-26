@@ -14,7 +14,7 @@ RTC_DATA_ATTR static bool rtc_core_valid = false;
 
 NvsCore::NvsCore(const char* ns, idf_hals::INvsHAL& hal)
     : hal_(hal)
-    , _namespace(ns)
+    , namespace_(ns)
 {
     core_ = {};
 }
@@ -37,43 +37,45 @@ esp_err_t NvsCore::init_partition()
 
 esp_err_t NvsCore::open_nvs(nvs_open_mode_t mode)
 {
-    if (_isOpen)
+    if (is_open_)
         return ESP_OK; // Already open
-    esp_err_t err = hal_.open(_namespace, mode, &_handle);
+    esp_err_t err = hal_.open(namespace_, mode, &handle_);
     if (err == ESP_OK)
-        _isOpen = true;
+        is_open_ = true;
     return err;
 }
 
 void NvsCore::close_nvs()
 {
-    if (_isOpen) {
-        hal_.close(_handle);
-        _isOpen = false;
+    if (is_open_) {
+        hal_.close(handle_);
+        is_open_ = false;
     }
 }
 
 esp_err_t NvsCore::load()
 {
-    // 1. Try RTC first (fast, survives deep sleep)
-    if (rtc_core_valid && rtc_core_storage.magic == CORE_STORAGE_MAGIC) {
-        uint32_t expected_crc = calculate_crc(rtc_core_storage);
-        if (rtc_core_storage.crc == expected_crc) {
-            ESP_LOGI(TAG, "Loaded core data from RTC memory");
-            core_ = rtc_core_storage;
-            return loadAppData();
-        }
-        ESP_LOGW(TAG, "RTC core data CRC mismatch, falling back to NVS");
-    }
-
-    // 2. Fallback to NVS
     esp_err_t err = open_nvs(NVS_READONLY);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open NVS for reading: %s", esp_err_to_name(err));
         return err;
     }
 
-    err = loadStruct("core_data", core_);
+    // 1. Try RTC first (fast, survives deep sleep)
+    if (rtc_core_valid && rtc_core_storage.magic == CORE_STORAGE_MAGIC) {
+        uint32_t expected_crc = calculate_crc(rtc_core_storage);
+        if (rtc_core_storage.crc == expected_crc) {
+            ESP_LOGI(TAG, "Loaded core data from RTC memory");
+            core_ = rtc_core_storage;
+            err = load_app_data();
+            close_nvs();
+            return err;
+        }
+        ESP_LOGW(TAG, "RTC core data CRC mismatch, falling back to NVS");
+    }
+
+    // 2. Fallback to NVS
+    err = load_struct("core_data", core_);
     if (err == ESP_OK) {
         uint32_t expected_crc = calculate_crc(core_);
         if (core_.magic != CORE_STORAGE_MAGIC || core_.crc != expected_crc) {
@@ -87,13 +89,17 @@ esp_err_t NvsCore::load()
         apply_core_defaults();
     } else {
         ESP_LOGI(TAG, "Loaded core data from NVS flash");
+        if (core_.schema_version != CORE_SCHEMA_VERSION) {
+            ESP_LOGW(TAG, "Schema mismatch (%u != %u). Migrating...", (unsigned int)core_.schema_version, (unsigned int)CORE_SCHEMA_VERSION);
+            core_.schema_version = CORE_SCHEMA_VERSION;
+        }
     }
 
     // Sync RTC with valid core_
     rtc_core_storage = core_;
     rtc_core_valid = true;
 
-    err = loadAppData();
+    err = load_app_data();
     close_nvs();
     return err;
 }
@@ -110,26 +116,26 @@ esp_err_t NvsCore::save(bool force_nvs)
     rtc_core_storage = core_;
     rtc_core_valid = true;
 
-    esp_err_t err = ESP_OK;
+    esp_err_t err = open_nvs(NVS_READWRITE);
+    if (err != ESP_OK) {
+        return err;
+    }
 
     if (need_nvs) {
-        err = open_nvs(NVS_READWRITE);
+        err = save_struct("core_data", core_);
         if (err == ESP_OK) {
-            err = saveStruct("core_data", core_);
-            if (err == ESP_OK) {
-                ESP_LOGI(TAG, "Saved core data to NVS flash (dirty: %d, force: %d)", is_dirty, force_nvs);
-            }
+            ESP_LOGI(TAG, "Saved core data to NVS flash (dirty: %d, force: %d)", is_dirty, force_nvs);
         }
     }
 
-    esp_err_t app_err = saveAppData(force_nvs);
+    esp_err_t app_err = save_app_data(force_nvs);
     if (err == ESP_OK) {
         err = app_err;
     }
 
-    if (need_nvs && _isOpen) {
+    if (is_open_) {
         if (err == ESP_OK) {
-            err = hal_.commit(_handle);
+            err = hal_.commit(handle_);
         }
         close_nvs();
     }
@@ -163,19 +169,26 @@ void NvsCore::factory_reset()
 {
     erase_namespace(); // Erase all first
     apply_core_defaults();
-    setAppDefaults();
+    set_app_defaults();
     save(true); // Force save default values to NVS
+}
+
+void NvsCore::invalidate_rtc_cache()
+{
+    rtc_core_valid = false;
+    rtc_core_storage = {};
 }
 
 esp_err_t NvsCore::erase_namespace()
 {
+    invalidate_rtc_cache();
     esp_err_t err = open_nvs(NVS_READWRITE);
     if (err != ESP_OK)
         return err;
 
-    err = hal_.erase_all(_handle);
+    err = hal_.erase_all(handle_);
     if (err == ESP_OK) {
-        err = hal_.commit(_handle);
+        err = hal_.commit(handle_);
     }
 
     close_nvs();
