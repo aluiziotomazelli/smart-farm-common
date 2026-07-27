@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
-        "nvs_core.cpp"
+        "src/nvs_core.cpp"
+        "src/persistence_backend.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES

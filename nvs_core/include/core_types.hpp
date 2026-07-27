@@ -4,15 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* =========================
- *  Schema version & Magic
- * ========================= */
-static constexpr uint32_t CORE_SCHEMA_VERSION = 1;
-static constexpr uint32_t CORE_STORAGE_MAGIC = 0x434F5245; // "CORE"
-
-/* =========================
- *  Power profile
- * ========================= */
+// =============================
+//  Power profile
+// =============================
 enum class PowerProfile : uint8_t
 {
     ALWAYS_ON = 0,
@@ -20,9 +14,9 @@ enum class PowerProfile : uint8_t
     DEEP_SLEEP,
 };
 
-/* =========================
- *  Wakeup source
- * ========================= */
+// =============================
+//  Wakeup source
+// =============================
 enum class WakeSource : uint8_t
 {
     NONE = 0,
@@ -34,9 +28,13 @@ enum class WakeSource : uint8_t
 // Flat struct for simplicity
 struct CoreStorage
 {
+    // Schema identifier, not used in comparator checks
+    static constexpr uint32_t CORE_MAGIC = 0x434F5245; // "CORE"
+    static constexpr uint32_t CORE_VERSION = 1;
+
     // Magic & Schema
-    uint32_t magic = CORE_STORAGE_MAGIC;
-    uint32_t schema_version = CORE_SCHEMA_VERSION;
+    uint32_t magic = CORE_MAGIC;
+    uint32_t version = CORE_VERSION;
 
     // Identity (inline, no separate struct)
     farm::NodeId node_id = farm::NodeId::UNKNOWN;
@@ -67,28 +65,23 @@ struct CoreStorage
     // CRC validation (MUST BE LAST FIELD)
     uint32_t crc = 0;
 
-    bool operator==(const CoreStorage &other) const
+    void reset()
     {
-        return magic == other.magic &&
-               schema_version == other.schema_version &&
-               node_id == other.node_id &&
-               node_type == other.node_type &&
-               hw_revision == other.hw_revision &&
-               fw_major == other.fw_major &&
-               fw_minor == other.fw_minor &&
-               fw_patch == other.fw_patch &&
-               boot_count == other.boot_count &&
-               crash_count == other.crash_count &&
-               has_valid_time == other.has_valid_time &&
-               unix_time == other.unix_time &&
-               last_sync_uptime == other.last_sync_uptime &&
-               power_profile == other.power_profile &&
-               sleep_interval_s == other.sleep_interval_s &&
+        *this = {};
+        magic = CORE_MAGIC;
+        version = CORE_VERSION;
+    }
+
+    bool operator==(const CoreStorage& other) const
+    {
+        return magic == other.magic && version == other.version && node_id == other.node_id &&
+               node_type == other.node_type && hw_revision == other.hw_revision && fw_major == other.fw_major &&
+               fw_minor == other.fw_minor && fw_patch == other.fw_patch && boot_count == other.boot_count &&
+               crash_count == other.crash_count && has_valid_time == other.has_valid_time &&
+               unix_time == other.unix_time && last_sync_uptime == other.last_sync_uptime &&
+               power_profile == other.power_profile && sleep_interval_s == other.sleep_interval_s &&
                last_wake == other.last_wake;
     }
 
-    bool operator!=(const CoreStorage &other) const
-    {
-        return !(*this == other);
-    }
+    bool operator!=(const CoreStorage& other) const { return !(*this == other); }
 };
