@@ -4,7 +4,7 @@
 #include "esp_log.h"
 
 static const char* TAG = "NvsCore PersistenceBackend";
-static const char* NVS_NAMESPACE = "nvs_core";
+static const char* NVS_NAMESPACE = "nvs_backend";
 
 // --- RTC Backend ---
 RtcBackend::RtcBackend(void* storage, size_t size)
