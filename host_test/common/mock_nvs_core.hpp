@@ -9,9 +9,6 @@
 class MockNvsCore : public INvsCore
 {
 public:
-    MOCK_METHOD(esp_err_t, init_partition, (), (override));
-    MOCK_METHOD(esp_err_t, load, (), (override));
-    MOCK_METHOD(esp_err_t, save, (bool force_nvs), (override));
-    MOCK_METHOD(void, factory_reset, (), (override));
-    MOCK_METHOD(esp_err_t, erase_namespace, (), (override));
+    MOCK_METHOD(esp_err_t, load_core, (CoreStorage & core), (override));
+    MOCK_METHOD(esp_err_t, save_core, (const CoreStorage& core, bool force_nvs_commit), (override));
 };
