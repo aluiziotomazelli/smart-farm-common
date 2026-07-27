@@ -4,6 +4,7 @@
 #include <gmock/gmock.h>
 #include "interfaces/i_persistence_backend.hpp"
 #include "esp_err.h"
+#include "nvs.h"
 #include <cstring>
 
 /**
