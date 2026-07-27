@@ -1,10 +1,8 @@
 #include "nvs_core.hpp"
 #include "core_types.hpp"
-#include <type_traits>
 
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
-#include "esp_rom_crc.h"
 #include "esp_attr.h"
 #include <cstring>
 #include <cstddef>
@@ -17,27 +15,11 @@ NvsCore::NvsCore(IPersistenceBackend& rtc_core, IPersistenceBackend& nvs_core)
 {
 }
 
-/**
- * Generic CRC calculator for any struct with a crc field.
- * Compile-time validations:
- * - T must be standard_layout (safe for offsetof)
- * - T must have a crc field (not at offset 0)
- */
-template <typename T> inline uint32_t calculate_crc(const T& data)
-{
-    static_assert(std::is_standard_layout_v<T>, "T must be standard_layout for safe offset calculation");
-    static_assert(offsetof(T, crc) != 0, "T must have a non-first crc field");
-
-    // Include from espnow_manager or define locally
-    return esp_rom_crc32_le(0, reinterpret_cast<const uint8_t*>(&data), offsetof(T, crc));
-}
-
 esp_err_t NvsCore::load_core(CoreStorage& core)
 {
     CoreStorage temp_core = {};
 
-    esp_err_t ret;
-    ret = load_raw_core(temp_core);
+    esp_err_t ret = load_raw_core(temp_core);
     if (ret == ESP_OK) {
         core = temp_core;
     }

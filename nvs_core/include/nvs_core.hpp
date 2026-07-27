@@ -17,7 +17,7 @@
  * This class provides a common interface and helper methods for saving and loading
  * data to/from NVS, while decoupling from the hardware via IHalNvs.
  */
-class NvsCore : public INvsCore
+class NvsCore : public virtual INvsCore
 {
 protected:
     /**
