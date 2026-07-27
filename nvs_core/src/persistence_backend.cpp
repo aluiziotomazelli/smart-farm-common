@@ -16,7 +16,7 @@ RtcBackend::RtcBackend(void* storage, size_t size)
 esp_err_t RtcBackend::load(void* data, size_t size)
 {
     if (size > size_)
-        return ESP_ERR_NVS_INVALID_LENGTH;
+        return ESP_ERR_INVALID_SIZE;
     memcpy(data, storage_, size);
     return ESP_OK;
 }
@@ -24,7 +24,7 @@ esp_err_t RtcBackend::load(void* data, size_t size)
 esp_err_t RtcBackend::save(const void* data, size_t size)
 {
     if (size > size_)
-        return ESP_ERR_NVS_INVALID_LENGTH;
+        return ESP_ERR_INVALID_SIZE;
     memcpy(storage_, data, size);
     return ESP_OK;
 }
