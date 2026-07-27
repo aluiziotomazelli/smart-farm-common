@@ -2,6 +2,7 @@ idf_component_register(
     SRCS 
         "main.cpp"
         "test_nvs_core.cpp"
+        "test_persistence_backend.cpp"
     INCLUDE_DIRS 
         "."
         "../../common"
