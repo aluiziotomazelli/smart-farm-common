@@ -19,10 +19,12 @@ enum class PowerProfile : uint8_t
 // =============================
 enum class WakeSource : uint8_t
 {
-    NONE = 0,
+    UNKNOWN = 0,
     TIMER,
     GPIO,
     POWER_ON,
+    RESTART,
+    CRASH,
 };
 
 // Flat struct for simplicity
@@ -43,7 +45,7 @@ struct CoreStorage
 
     // Firmware
     uint8_t fw_major = 0;
-    uint8_t fw_minor = 1;
+    uint8_t fw_minor = 0;
     uint8_t fw_patch = 0;
 
     // Lifecycle
@@ -60,7 +62,7 @@ struct CoreStorage
     uint32_t sleep_interval_s = 3600;
 
     // Wake
-    WakeSource last_wake = WakeSource::POWER_ON;
+    WakeSource last_wake = WakeSource::UNKNOWN;
 
     // CRC validation (MUST BE LAST FIELD)
     uint32_t crc = 0;
