@@ -6,119 +6,163 @@
 namespace farm {
 
 /**
- * @brief Application-specific Node IDs for the Farm project.
+ * @brief Application-specific Node IDs for the Smart Farm ecosystem.
  */
 enum class NodeId : uint8_t
 {
-    UNKNOWN      = 0x00,
-    HUB          = 0x01, // Reserved: Central Hub
-    WATER_TANK   = 0x05,
-    SOLAR_SENSOR = 0x07,
-    PUMP_CONTROL = 0x0A,
-    WEATHER      = 0x0C,
-    BROADCAST    = 0xFF, // Reserved: Broadcast
+    UNKNOWN = 0x00,      ///< Uninitialized or unassigned Node ID
+    HUB = 0x01,          ///< Reserved: Central Gateway/Hub controller
+    WATER_TANK = 0x05,   ///< Water tank monitoring peripheral node
+    SOLAR_SENSOR = 0x07, ///< Solar power sensor peripheral node
+    PUMP_CONTROL = 0x0A, ///< Water pump control actuator node
+    WEATHER = 0x0C,      ///< Weather station sensor node
+    BROADCAST = 0xFF,    ///< Reserved: Broadcast destination to all nodes
 };
 
 /**
- * @brief Application-specific Node Types for the Farm project.
+ * @brief Application-specific Node Types for the Smart Farm ecosystem.
  */
 enum class NodeType : uint8_t
 {
-    UNKNOWN  = 0x00,
-    HUB      = 0x01, // Reserved: Central Hub
-    SENSOR   = 0x02,
-    ACTUATOR = 0x03,
+    UNKNOWN = 0x00,  ///< Unspecified or uninitialized node type
+    HUB = 0x01,      ///< Central Gateway/Hub controller
+    SENSOR = 0x02,   ///< Telemetry and sensor data gathering node
+    ACTUATOR = 0x03, ///< Control and output activation node
 };
 
 /**
- * @brief Application-specific Data Payload Types (MessageType::DATA) for the Farm project.
- * Range: 0x01–0x3F
+ * @brief Application-specific Data Payload Types (MessageType::DATA).
+ * @note Range: 0x01–0x3F for telemetry reports; 0x40+ for application events.
  */
 enum class PayloadType : uint8_t
 {
-    WATER_LEVEL_REPORT  = 0x01,
-    SOLAR_SENSOR_REPORT = 0x02,
-    WEATHER_REPORT      = 0x03,
-    PUMP_CONTROL_STATUS = 0x04,
+    WATER_LEVEL_REPORT = 0x01,  ///< Water tank level, battery, and sensor telemetry
+    SOLAR_SENSOR_REPORT = 0x02, ///< Solar voltage, current, and power telemetry
+    WEATHER_REPORT = 0x03,      ///< Weather sensor data telemetry
+    PUMP_CONTROL_STATUS = 0x04, ///< Pump operation status and circuit state
+    OTA_STATUS_REPORT = 0x45,   ///< Over-The-Air firmware update outcome report
 };
 
 /**
- * @brief Application-specific Command Types (MessageType::COMMAND) for the Farm project.
- * Range: 0x40–0xFF (0x01–0x3F is reserved for generic transport commands in espnow::CommandType).
+ * @brief Application-specific Command Types (MessageType::COMMAND).
+ * @note Range: 0x40–0xFF (0x01–0x3F is reserved for generic transport commands in espnow::CommandType).
  */
 enum class CommandType : uint8_t
 {
-    SLEEP_OVERRIDE = 0x40, ///< Instructs a sleeping node to override local sleep calculation
-    PUMP_TURN_ON   = 0x41, ///< Instructs the pump actuator to activate
-    PUMP_TURN_OFF  = 0x42, ///< Instructs the pump actuator to deactivate
+    SLEEP_OVERRIDE = 0x40, ///< Instructs a sleeping node to override its local sleep duration
+    PUMP_TURN_ON = 0x41,   ///< Instructs the pump actuator to activate
+    PUMP_TURN_OFF = 0x42,  ///< Instructs the pump actuator to deactivate
 };
 
 /**
- * @brief Measurement status mirrored from sensor components.
+ * @brief Measurement status mirrored from hardware sensor drivers.
  */
 enum class SensorStatus : uint8_t
 {
-    OK                 = 0x00,
-    WARNING_LOW_SIGNAL = 0x01,
-    ERROR_TIMEOUT      = 0x02,
-    ERROR_OUT_OF_RANGE = 0x03,
-    ERROR_UNSTABLE     = 0x04,
-    ERROR_HARDWARE     = 0x05,
-    UNKNOWN            = 0xFF,
+    OK = 0x00,                 ///< Measurement valid and nominal
+    WARNING_LOW_SIGNAL = 0x01, ///< Low signal quality or weak echo detected
+    ERROR_TIMEOUT = 0x02,      ///< Echo/response timeout reached
+    ERROR_OUT_OF_RANGE = 0x03, ///< Distance/measurement exceeds physical sensor bounds
+    ERROR_UNSTABLE = 0x04,     ///< High variance or jitter between consecutive samples
+    ERROR_HARDWARE = 0x05,     ///< Driver or power rail hardware failure
+    UNKNOWN = 0xFF,            ///< Uninitialized sensor status
 };
 
 /**
- * @brief Represents the state of the battery based on voltage thresholds.
+ * @brief Represents battery health and operational state based on voltage thresholds.
  */
 enum class BatteryState : uint8_t
 {
-    UNKNOWN  = 0x00,
-    CRITICAL = 0x01,
-    LOW      = 0x02,
-    NORMAL   = 0x03,
-    FULL     = 0x04,
+    UNKNOWN = 0x00,  ///< Uninitialized or unmeasured battery state
+    CRITICAL = 0x01, ///< Voltage below safe operation limit; immediate sleep required
+    LOW = 0x02,      ///< Voltage low; non-essential tasks should be reduced
+    NORMAL = 0x03,   ///< Battery operating within optimal voltage range
+    FULL = 0x04,     ///< Battery fully charged or powered via external source
+};
+
+/**
+ * @brief Execution outcome of an Over-The-Air (OTA) firmware update operation.
+ */
+enum class OtaExecResult : uint8_t
+{
+    DOWNLOAD_FAILED = 0,   ///< Failed to download manifest/image or SHA256 hash mismatch
+    CONFIRMED_SUCCESS = 1, ///< New firmware executed cleanly and passed post-boot verification
+    ROLLBACK_TRIGGERED = 2 ///< New firmware failed post-boot health check; rolled back to previous image
 };
 
 #pragma pack(push, 1)
 
+/**
+ * @brief Telemetry report sent periodically by the Water Tank node.
+ */
 struct WaterLevelReport
 {
-    uint16_t     level_permille;
-    float        distance_cm;
-    uint16_t     battery_mv;
-    uint8_t      battery_percent;
-    BatteryState battery_state;
-    SensorStatus status;
-    bool         float_switch_is_full;
-    bool         backup_mode_active;
+    uint16_t level_permille;    ///< Calculated level in permille (0 to 1000)
+    float distance_cm;          ///< Raw measured distance to water surface in centimeters
+    uint16_t battery_mv;        ///< Battery voltage in millivolts
+    uint8_t battery_percent;    ///< Calculated battery percentage (0 to 100)
+    BatteryState battery_state; ///< Current battery state classification
+    SensorStatus status;        ///< Distance sensor measurement status
+    bool float_switch_is_full;  ///< True if mechanical float switch indicates full tank
+    bool backup_mode_active;    ///< True if running in fail-safe/backup estimation mode
 };
 
+/**
+ * @brief Telemetry report sent by solar monitoring nodes.
+ */
 struct SolarSensorReport
 {
-    uint16_t voltage_mv;
-    uint16_t current_ma;
-    uint16_t power_mw;
+    uint16_t voltage_mv; ///< Panel voltage in millivolts
+    uint16_t current_ma; ///< Generated current in milliamperes
+    uint16_t power_mw;   ///< Calculated instantaneous power in milliwatts
 };
 
+/**
+ * @brief Command payload sent to override a node's deep sleep interval.
+ */
 struct SleepOverrideCommand
 {
     uint32_t sleep_time_s; ///< Requested sleep duration in seconds (0 = cancel override)
 };
 
+/**
+ * @brief Command payload sent to control pump activation and safety parameters.
+ */
 struct PumpCommand
 {
-    CommandType action;     ///< PUMP_TURN_ON or PUMP_TURN_OFF
-    uint16_t    watchdog_s; ///< Auto-off if hub is silent for this duration (safety)
-    uint8_t     circuit_id; ///< Which pump/circuit (0 = default, for future expansion)
+    CommandType action;  ///< Command action (PUMP_TURN_ON or PUMP_TURN_OFF)
+    uint16_t watchdog_s; ///< Auto-off watchdog timeout in seconds (0 = disable watchdog)
+    uint8_t circuit_id;  ///< Target pump/circuit ID (0 = default primary circuit)
+};
+
+/**
+ * @brief Status report notifying the Hub about an OTA update execution result.
+ */
+struct OtaStatusReport
+{
+    OtaExecResult result; ///< Execution result of the OTA process
+    uint8_t fw_major;     ///< Running firmware major version number
+    uint8_t fw_minor;     ///< Running firmware minor version number
+    uint8_t fw_patch;     ///< Running firmware patch version number
+    uint8_t error_code;   ///< Optional detailed error code (0 = no error)
 };
 
 #pragma pack(pop)
 
 } // namespace farm
 
-// Validations to ensure that no payload exceeds the ESP-NOW payload limits
+// Validations to ensure no payload exceeds maximum ESP-NOW payload bounds
 static constexpr size_t APP_MAX_PAYLOAD_SIZE = 230;
-static_assert(sizeof(farm::WaterLevelReport) <= APP_MAX_PAYLOAD_SIZE, "WaterLevelReport payload is too large");
-static_assert(sizeof(farm::SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE, "SolarSensorReport payload is too large");
-static_assert(sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE, "SleepOverrideCommand payload is too large");
-static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload is too large");
+static_assert(
+    sizeof(farm::WaterLevelReport) <= APP_MAX_PAYLOAD_SIZE,
+    "WaterLevelReport payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE,
+    "SolarSensorReport payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE,
+    "SleepOverrideCommand payload exceeds ESP-NOW payload limit");
+static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::OtaStatusReport) <= APP_MAX_PAYLOAD_SIZE,
+    "OtaStatusReport payload exceeds ESP-NOW payload limit");
