@@ -105,6 +105,8 @@ enum class OtaErrorCode : uint8_t
     HEALTH_CHECK_FAILED = 0x07,      ///< Post-boot health check failed (unhealthy session)
     PARTITION_CONFIRM_FAILED = 0x08, ///< esp_ota_mark_app_valid() returned failure
     WATCHDOG_TIMEOUT = 0x09,         ///< OTA process exceeded overall watchdog timeout
+    DEVICE_TYPE_MISMATCH = 0x0A,     ///< Manifest device_type does not match node configuration
+    DOWNLOAD_SESSION_FAIL = 0x0B,    ///< Failed to initialize OTA download session or image descriptor
     UNKNOWN_ERROR = 0xFF,            ///< Unclassified or unexpected failure
 };
 
@@ -158,11 +160,11 @@ struct PumpCommand
  */
 struct OtaStatusReport
 {
-    OtaExecResult result;   ///< Execution result of the OTA process
+    OtaExecResult result;    ///< Execution result of the OTA process
     OtaErrorCode error_code; ///< Detailed error reason (NONE if success)
-    uint8_t fw_major;       ///< Running firmware major version number
-    uint8_t fw_minor;       ///< Running firmware minor version number
-    uint8_t fw_patch;       ///< Running firmware patch version number
+    uint8_t fw_major;        ///< Running firmware major version number
+    uint8_t fw_minor;        ///< Running firmware minor version number
+    uint8_t fw_patch;        ///< Running firmware patch version number
 };
 
 #pragma pack(pop)
