@@ -90,6 +90,24 @@ enum class OtaExecResult : uint8_t
     ROLLBACK_TRIGGERED = 2 ///< New firmware failed post-boot health check; rolled back to previous image
 };
 
+/**
+ * @brief Detailed error reason for OTA update failures across all farm nodes.
+ */
+enum class OtaErrorCode : uint8_t
+{
+    NONE = 0x00,                     ///< No error / success
+    MANIFEST_PARSE_ERROR = 0x01,     ///< Failed to parse JSON manifest or invalid structure
+    VERSION_NOT_NEWER = 0x02,        ///< Version in manifest is older or equal to running image
+    WIFI_CONNECT_FAILED = 0x03,      ///< Failed to connect to WiFi AP for download
+    HTTP_DOWNLOAD_FAILED = 0x04,     ///< HTTP request failed or connection timed out
+    IMAGE_HASH_MISMATCH = 0x05,      ///< SHA-256 validation failed for downloaded image
+    FLASH_WRITE_ERROR = 0x06,        ///< Failed to write binary to flash partition
+    HEALTH_CHECK_FAILED = 0x07,      ///< Post-boot health check failed (unhealthy session)
+    PARTITION_CONFIRM_FAILED = 0x08, ///< esp_ota_mark_app_valid() returned failure
+    WATCHDOG_TIMEOUT = 0x09,         ///< OTA process exceeded overall watchdog timeout
+    UNKNOWN_ERROR = 0xFF,            ///< Unclassified or unexpected failure
+};
+
 #pragma pack(push, 1)
 
 /**
@@ -140,11 +158,11 @@ struct PumpCommand
  */
 struct OtaStatusReport
 {
-    OtaExecResult result; ///< Execution result of the OTA process
-    uint8_t fw_major;     ///< Running firmware major version number
-    uint8_t fw_minor;     ///< Running firmware minor version number
-    uint8_t fw_patch;     ///< Running firmware patch version number
-    uint8_t error_code;   ///< Optional detailed error code (0 = no error)
+    OtaExecResult result;   ///< Execution result of the OTA process
+    OtaErrorCode error_code; ///< Detailed error reason (NONE if success)
+    uint8_t fw_major;       ///< Running firmware major version number
+    uint8_t fw_minor;       ///< Running firmware minor version number
+    uint8_t fw_patch;       ///< Running firmware patch version number
 };
 
 #pragma pack(pop)
