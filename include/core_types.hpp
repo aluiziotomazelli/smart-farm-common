@@ -54,8 +54,7 @@ struct CoreStorage
 
     // Time
     bool has_valid_time = false;
-    uint64_t unix_time = 0;
-    uint32_t last_sync_uptime = 0;
+    uint64_t last_sync_unix_time_ms = 0;
 
     // Power
     PowerProfile power_profile = PowerProfile::ALWAYS_ON;
@@ -80,9 +79,8 @@ struct CoreStorage
                node_type == other.node_type && hw_revision == other.hw_revision && fw_major == other.fw_major &&
                fw_minor == other.fw_minor && fw_patch == other.fw_patch && boot_count == other.boot_count &&
                crash_count == other.crash_count && has_valid_time == other.has_valid_time &&
-               unix_time == other.unix_time && last_sync_uptime == other.last_sync_uptime &&
-               power_profile == other.power_profile && sleep_interval_s == other.sleep_interval_s &&
-               last_wake == other.last_wake;
+               last_sync_unix_time_ms == other.last_sync_unix_time_ms && power_profile == other.power_profile &&
+               sleep_interval_s == other.sleep_interval_s && last_wake == other.last_wake;
     }
 
     bool operator!=(const CoreStorage& other) const { return !(*this == other); }

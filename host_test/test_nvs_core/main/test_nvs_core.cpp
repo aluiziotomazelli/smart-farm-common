@@ -66,8 +66,7 @@ protected:
         core.boot_count = 42;
         core.crash_count = 2;
         core.has_valid_time = true;
-        core.unix_time = 1234567890;
-        core.last_sync_uptime = 3600;
+        core.last_sync_unix_time_ms = 3600;
         core.power_profile = PowerProfile::DEEP_SLEEP;
         core.sleep_interval_s = 300;
         core.last_wake = WakeSource::TIMER;
