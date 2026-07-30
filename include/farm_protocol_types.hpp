@@ -52,6 +52,7 @@ enum class CommandType : uint8_t
     SLEEP_OVERRIDE = 0x40, ///< Instructs a sleeping node to override its local sleep duration
     PUMP_TURN_ON = 0x41,   ///< Instructs the pump actuator to activate
     PUMP_TURN_OFF = 0x42,  ///< Instructs the pump actuator to deactivate
+    SYNC_TIME = 0x43,      ///< Instructs a node to synchronize system time via ESP-NOW
 };
 
 /**
@@ -125,6 +126,7 @@ struct WaterLevelReport
     SensorStatus status;        ///< Distance sensor measurement status
     bool float_switch_is_full;  ///< True if mechanical float switch indicates full tank
     bool backup_mode_active;    ///< True if running in fail-safe/backup estimation mode
+    uint64_t unix_time;         ///< Epoch UTC timestamp in ms at sample time (0 if not synchronized)
 };
 
 /**
@@ -156,6 +158,18 @@ struct PumpCommand
 };
 
 /**
+ * @brief Command payload sent to synchronize system time node-to-node via ESP-NOW.
+ * Layout is identical to time_manager::TimeSyncPacket (12 bytes packed).
+ */
+struct TimeSyncCommand
+{
+    uint64_t timestamp_ms;  ///< Epoch UTC timestamp in milliseconds
+    int16_t tz_offset_min;  ///< Timezone offset in minutes (e.g. -240 for UTC-4)
+    uint8_t sync_source;    ///< Synchronization source (0=unknown, 1=SNTP, 2=manual, 3=ESP-NOW)
+    uint8_t flags;          ///< Bit 0: is_valid (1 if synchronized)
+};
+
+/**
  * @brief Status report notifying the Hub about an OTA update execution result.
  */
 struct OtaStatusReport
@@ -179,9 +193,8 @@ static_assert(
 static_assert(
     sizeof(farm::SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE,
     "SolarSensorReport payload exceeds ESP-NOW payload limit");
-static_assert(
-    sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE,
-    "SleepOverrideCommand payload exceeds ESP-NOW payload limit");
+static_assert(sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE, "SleepOverrideCommand payload exceeds ESP-NOW payload limit");
+static_assert(sizeof(farm::TimeSyncCommand) <= APP_MAX_PAYLOAD_SIZE, "TimeSyncCommand payload exceeds ESP-NOW payload limit");
 static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload exceeds ESP-NOW payload limit");
 static_assert(
     sizeof(farm::OtaStatusReport) <= APP_MAX_PAYLOAD_SIZE,
