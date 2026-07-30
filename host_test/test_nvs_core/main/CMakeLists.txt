@@ -9,7 +9,7 @@ idf_component_register(
         "../../../external/idf_hals/mocks"
     REQUIRES 
         gtest
-        nvs_core
+        smart-farm-common
         idf_hals
         WHOLE_ARCHIVE
 )
