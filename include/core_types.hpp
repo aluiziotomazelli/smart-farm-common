@@ -32,11 +32,11 @@ struct CoreStorage
 {
     // Schema identifier, not used in comparator checks
     static constexpr uint32_t CORE_MAGIC = 0x434F5245; // "CORE"
-    static constexpr uint32_t CORE_VERSION = 1;
+    static constexpr uint8_t CORE_VERSION = 1;
 
     // Magic & Schema
     uint32_t magic = CORE_MAGIC;
-    uint32_t version = CORE_VERSION;
+    uint8_t version = CORE_VERSION;
 
     // Identity (inline, no separate struct)
     farm::NodeId node_id = farm::NodeId::UNKNOWN;
