@@ -64,7 +64,7 @@ esp_err_t NvsCore::save_core(const CoreStorage& core, bool force_nvs_commit)
     return ESP_OK;
 }
 
-esp_err_t NvsCore::process_boot_reasons(
+void NvsCore::process_boot_reasons(
     CoreStorage& core,
     esp_reset_reason_t reset_reason,
     esp_sleep_wakeup_cause_t wakeup_cause,
@@ -114,8 +114,6 @@ esp_err_t NvsCore::process_boot_reasons(
         core.last_wake = WakeSource::UNKNOWN;
         break;
     }
-
-    return ESP_OK;
 }
 
 esp_err_t NvsCore::create_default_storage(CoreStorage& core, const CoreStorage& default_core)

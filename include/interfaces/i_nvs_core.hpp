@@ -20,7 +20,7 @@ public:
     virtual esp_err_t load_core(CoreStorage& core) = 0;
     virtual esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) = 0;
 
-    virtual esp_err_t process_boot_reasons(
+    virtual void process_boot_reasons(
         CoreStorage& core,
         esp_reset_reason_t reset_reason,
         esp_sleep_wakeup_cause_t wakeup_cause,

@@ -418,10 +418,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsPowerOn)
     core.crash_count = 0;
     bool pending_commit = true;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_POWERON, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_POWERON, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 6);
     EXPECT_EQ(core.crash_count, 0);
     EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
@@ -438,10 +436,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsCrash)
     core.crash_count = 1;
     bool pending_commit = false;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_PANIC, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_PANIC, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 11);
     EXPECT_EQ(core.crash_count, 2);
     EXPECT_EQ(core.last_wake, WakeSource::CRASH);
@@ -457,10 +453,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsSoftwareRestart)
     core.boot_count = 3;
     bool pending_commit = true;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_SW, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_SW, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 4);
     EXPECT_EQ(core.last_wake, WakeSource::RESTART);
     EXPECT_FALSE(pending_commit);
@@ -475,10 +469,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepTimer)
     core.boot_count = 20;
     bool pending_commit = true;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_TIMER, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_TIMER, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::TIMER);
     EXPECT_FALSE(pending_commit);
@@ -493,10 +485,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepGpio)
     core.boot_count = 20;
     bool pending_commit = true;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_GPIO, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_GPIO, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::GPIO);
     EXPECT_FALSE(pending_commit);
@@ -511,10 +501,8 @@ TEST_F(NvsCoreTest, ProcessBootReasonsUnknown)
     core.boot_count = 100;
     bool pending_commit = true;
 
-    esp_err_t ret = nvs_core_->process_boot_reasons(
-        core, ESP_RST_UNKNOWN, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    nvs_core_->process_boot_reasons(core, ESP_RST_UNKNOWN, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 101);
     EXPECT_EQ(core.last_wake, WakeSource::UNKNOWN);
     EXPECT_FALSE(pending_commit);
