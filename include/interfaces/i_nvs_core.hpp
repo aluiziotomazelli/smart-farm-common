@@ -1,6 +1,9 @@
 #pragma once
 
 #include "esp_err.h"
+#include "esp_system.h"
+#include "esp_sleep.h"
+
 #include "core_types.hpp"
 
 /**
@@ -16,4 +19,12 @@ public:
 
     virtual esp_err_t load_core(CoreStorage& core) = 0;
     virtual esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) = 0;
+
+    virtual esp_err_t process_boot_reasons(
+        CoreStorage& core,
+        esp_reset_reason_t reset_reason,
+        esp_sleep_wakeup_cause_t wakeup_cause,
+        bool& out_pending_commit) = 0;
+
+    virtual esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core) = 0;
 };

@@ -52,6 +52,14 @@ public:
     esp_err_t load_core(CoreStorage& core) override;
     esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) override;
 
+    esp_err_t process_boot_reasons(
+        CoreStorage& core,
+        esp_reset_reason_t reset_reason,
+        esp_sleep_wakeup_cause_t wakeup_cause,
+        bool& out_pending_commit) override;
+
+    esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core) override;
+
 private:
     IPersistenceBackend& rtc_core_;
     IPersistenceBackend& nvs_core_;

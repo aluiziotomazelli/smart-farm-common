@@ -380,3 +380,142 @@ TEST_F(NvsCoreTest, NoDoubleSaveWhenUnchanged)
     // If data is truly identical, should return quickly
     EXPECT_EQ(ret, ESP_OK);
 }
+
+/**
+ * Test: Create default storage
+ *
+ * Scenario: Calling create_default_storage with a default CoreStorage structure
+ * Expected: Storage is saved to backends and core is updated with default_core
+ */
+TEST_F(NvsCoreTest, CreateDefaultStorage)
+{
+    CoreStorage default_core;
+    default_core.reset();
+    default_core.node_id = farm::NodeId::HUB;
+    default_core.node_type = farm::NodeType::HUB;
+    default_core.power_profile = PowerProfile::ALWAYS_ON;
+
+    CoreStorage core;
+    esp_err_t ret = nvs_core_->create_default_storage(core, default_core);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.node_id, farm::NodeId::HUB);
+    EXPECT_EQ(core.node_type, farm::NodeType::HUB);
+    EXPECT_EQ(core.power_profile, PowerProfile::ALWAYS_ON);
+
+    // Verify it was stored in NVS
+    CoreStorage nvs_stored = GetStoredNvsData();
+    EXPECT_EQ(nvs_stored.node_id, farm::NodeId::HUB);
+}
+
+/**
+ * Test: Process boot reasons - Power On
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsPowerOn)
+{
+    CoreStorage core;
+    core.boot_count = 5;
+    core.crash_count = 0;
+    bool pending_commit = true;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_POWERON, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 6);
+    EXPECT_EQ(core.crash_count, 0);
+    EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
+    EXPECT_FALSE(pending_commit);
+}
+
+/**
+ * Test: Process boot reasons - Crash Reset
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsCrash)
+{
+    CoreStorage core;
+    core.boot_count = 10;
+    core.crash_count = 1;
+    bool pending_commit = false;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_PANIC, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 11);
+    EXPECT_EQ(core.crash_count, 2);
+    EXPECT_EQ(core.last_wake, WakeSource::CRASH);
+    EXPECT_TRUE(pending_commit);
+}
+
+/**
+ * Test: Process boot reasons - Software Reset
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsSoftwareRestart)
+{
+    CoreStorage core;
+    core.boot_count = 3;
+    bool pending_commit = true;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_SW, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 4);
+    EXPECT_EQ(core.last_wake, WakeSource::RESTART);
+    EXPECT_FALSE(pending_commit);
+}
+
+/**
+ * Test: Process boot reasons - Deep Sleep Timer Wakeup
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepTimer)
+{
+    CoreStorage core;
+    core.boot_count = 20;
+    bool pending_commit = true;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_TIMER, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 21);
+    EXPECT_EQ(core.last_wake, WakeSource::TIMER);
+    EXPECT_FALSE(pending_commit);
+}
+
+/**
+ * Test: Process boot reasons - Deep Sleep GPIO Wakeup
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepGpio)
+{
+    CoreStorage core;
+    core.boot_count = 20;
+    bool pending_commit = true;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_GPIO, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 21);
+    EXPECT_EQ(core.last_wake, WakeSource::GPIO);
+    EXPECT_FALSE(pending_commit);
+}
+
+/**
+ * Test: Process boot reasons - Unknown/Default Reset
+ */
+TEST_F(NvsCoreTest, ProcessBootReasonsUnknown)
+{
+    CoreStorage core;
+    core.boot_count = 100;
+    bool pending_commit = true;
+
+    esp_err_t ret = nvs_core_->process_boot_reasons(
+        core, ESP_RST_UNKNOWN, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+
+    EXPECT_EQ(ret, ESP_OK);
+    EXPECT_EQ(core.boot_count, 101);
+    EXPECT_EQ(core.last_wake, WakeSource::UNKNOWN);
+    EXPECT_FALSE(pending_commit);
+}

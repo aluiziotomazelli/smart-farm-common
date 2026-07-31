@@ -64,6 +64,74 @@ esp_err_t NvsCore::save_core(const CoreStorage& core, bool force_nvs_commit)
     return ESP_OK;
 }
 
+esp_err_t NvsCore::process_boot_reasons(
+    CoreStorage& core,
+    esp_reset_reason_t reset_reason,
+    esp_sleep_wakeup_cause_t wakeup_cause,
+    bool& out_pending_commit)
+{
+    out_pending_commit = false;
+    core.boot_count++;
+
+    switch (reset_reason) {
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+    case ESP_RST_BROWNOUT:
+        core.crash_count++;
+        out_pending_commit = true;
+        core.last_wake = WakeSource::CRASH;
+        ESP_LOGW(TAG, "Reset from crash");
+        break;
+
+    case ESP_RST_POWERON:
+        core.last_wake = WakeSource::POWER_ON;
+        break;
+
+    case ESP_RST_SW:
+        core.last_wake = WakeSource::RESTART;
+        break;
+
+    case ESP_RST_DEEPSLEEP:
+        switch (wakeup_cause) {
+        case ESP_SLEEP_WAKEUP_TIMER:
+            core.last_wake = WakeSource::TIMER;
+            break;
+
+        case ESP_SLEEP_WAKEUP_EXT0:
+        case ESP_SLEEP_WAKEUP_EXT1:
+        case ESP_SLEEP_WAKEUP_GPIO:
+            core.last_wake = WakeSource::GPIO;
+            break;
+
+        default:
+            core.last_wake = WakeSource::UNKNOWN;
+        }
+        break;
+
+    default:
+        core.last_wake = WakeSource::UNKNOWN;
+        break;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t NvsCore::create_default_storage(CoreStorage& core, const CoreStorage& default_core)
+{
+    core = default_core;
+    esp_err_t ret = save_core(core, true);
+
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Created default storage");
+    }
+    else {
+        ESP_LOGE(TAG, "Failed to create default storage: %s", esp_err_to_name(ret));
+    }
+    return ret;
+}
+
 // =================================================
 // Private methods
 // =================================================
