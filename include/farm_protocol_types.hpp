@@ -83,6 +83,33 @@ enum class BatteryState : uint8_t
 };
 
 /**
+ * @brief Defines who controls the load's switching behavior.
+ *
+ * Reported by the actuator node in its status payload. In AUTO mode, the
+ * actuator requests hub authorization before switching. In MANUAL mode,
+ * the actuator acts on the user's physical switch and reports its state.
+ */
+enum class ControlMode : uint8_t
+{
+    OFF = 0x00,    ///< Load is physically off, regardless of source selection
+    AUTO = 0x01,   ///< Hub-managed: actuator requests authorization before switching
+    MANUAL = 0x02, ///< User-controlled: actuator acts independently, reports state to hub
+};
+
+/**
+ * @brief Defines the energy source circuit a load is connected to.
+ *
+ * Only meaningful when ControlMode != OFF. SOLAR loads are counted in the
+ * hub's power balance. GRID loads are monitored for display/log only.
+ */
+enum class PowerSource : uint8_t
+{
+    UNKNOWN = 0x00, ///< Source not yet determined (initial state or actuator not paired)
+    SOLAR = 0x01,   ///< Connected to solar/inverter circuit
+    GRID = 0x02,    ///< Connected to utility grid circuit (fallback)
+};
+
+/**
  * @brief Execution outcome of an Over-The-Air (OTA) firmware update operation.
  */
 enum class OtaExecResult : uint8_t
