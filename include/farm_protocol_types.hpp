@@ -41,6 +41,7 @@ enum class PayloadType : uint8_t
     WEATHER_REPORT = 0x03,      ///< Weather sensor data telemetry
     PUMP_CONTROL_STATUS = 0x04, ///< Pump operation status and circuit state
     OTA_STATUS_REPORT = 0x45,   ///< Over-The-Air firmware update outcome report
+    REQUEST_SYNC_TIME = 0x46,   ///< Request for time synchronization from the Hub
 };
 
 /**
@@ -163,10 +164,10 @@ struct PumpCommand
  */
 struct TimeSyncCommand
 {
-    uint64_t timestamp_ms;  ///< Epoch UTC timestamp in milliseconds
-    int16_t tz_offset_min;  ///< Timezone offset in minutes (e.g. -240 for UTC-4)
-    uint8_t sync_source;    ///< Synchronization source (0=unknown, 1=SNTP, 2=manual, 3=ESP-NOW)
-    uint8_t flags;          ///< Bit 0: is_valid (1 if synchronized)
+    uint64_t timestamp_ms; ///< Epoch UTC timestamp in milliseconds
+    int16_t tz_offset_min; ///< Timezone offset in minutes (e.g. -240 for UTC-4)
+    uint8_t sync_source;   ///< Synchronization source (0=unknown, 1=SNTP, 2=manual, 3=ESP-NOW)
+    uint8_t flags;         ///< Bit 0: is_valid (1 if synchronized)
 };
 
 /**
@@ -193,8 +194,12 @@ static_assert(
 static_assert(
     sizeof(farm::SolarSensorReport) <= APP_MAX_PAYLOAD_SIZE,
     "SolarSensorReport payload exceeds ESP-NOW payload limit");
-static_assert(sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE, "SleepOverrideCommand payload exceeds ESP-NOW payload limit");
-static_assert(sizeof(farm::TimeSyncCommand) <= APP_MAX_PAYLOAD_SIZE, "TimeSyncCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::SleepOverrideCommand) <= APP_MAX_PAYLOAD_SIZE,
+    "SleepOverrideCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::TimeSyncCommand) <= APP_MAX_PAYLOAD_SIZE,
+    "TimeSyncCommand payload exceeds ESP-NOW payload limit");
 static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload exceeds ESP-NOW payload limit");
 static_assert(
     sizeof(farm::OtaStatusReport) <= APP_MAX_PAYLOAD_SIZE,
