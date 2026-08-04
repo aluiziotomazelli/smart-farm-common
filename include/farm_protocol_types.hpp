@@ -41,7 +41,7 @@ enum class PayloadType : uint8_t
     WEATHER_REPORT = 0x03,      ///< Weather sensor data telemetry
     PUMP_CONTROL_STATUS = 0x04, ///< Pump operation status and circuit state
     OTA_STATUS_REPORT = 0x45,   ///< Over-The-Air firmware update outcome report
-    REQUEST_SYNC_TIME = 0x46,   ///< Request for time synchronization from the Hub
+    REQUEST_TIME_SYNC = 0x46,   ///< Request for time synchronization from the Hub
 };
 
 /**
