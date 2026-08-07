@@ -67,7 +67,7 @@ protected:
         core.crash_count = 2;
         core.has_valid_time = true;
         core.last_sync_unix_time_ms = 3600;
-        core.power_profile = PowerProfile::DEEP_SLEEP;
+        core.power_profile = farm::PowerProfile::DEEP_SLEEP;
         core.sleep_interval_s = 300;
         core.last_wake = WakeSource::TIMER;
 
@@ -393,7 +393,7 @@ TEST_F(NvsCoreTest, CreateDefaultStorage)
     default_core.reset();
     default_core.node_id = farm::NodeId::HUB;
     default_core.node_type = farm::NodeType::HUB;
-    default_core.power_profile = PowerProfile::ALWAYS_ON;
+    default_core.power_profile = farm::PowerProfile::ALWAYS_ON;
 
     CoreStorage core;
     esp_err_t ret = nvs_core_->create_default_storage(core, default_core);
@@ -401,7 +401,7 @@ TEST_F(NvsCoreTest, CreateDefaultStorage)
     EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.node_id, farm::NodeId::HUB);
     EXPECT_EQ(core.node_type, farm::NodeType::HUB);
-    EXPECT_EQ(core.power_profile, PowerProfile::ALWAYS_ON);
+    EXPECT_EQ(core.power_profile, farm::PowerProfile::ALWAYS_ON);
 
     // Verify it was stored in NVS
     CoreStorage nvs_stored = GetStoredNvsData();

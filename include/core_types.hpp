@@ -7,7 +7,6 @@
 // =============================
 //  Power profile
 // =============================
-using farm::PowerProfile;
 
 // =============================
 //  Wakeup source
@@ -52,7 +51,7 @@ struct CoreStorage
     uint64_t last_sync_unix_time_ms = 0;
 
     // Power
-    PowerProfile power_profile = PowerProfile::ALWAYS_ON;
+    farm::PowerProfile power_profile = farm::PowerProfile::ALWAYS_ON;
     uint32_t sleep_interval_s = 3600;
 
     // Wake
