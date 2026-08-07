@@ -7,12 +7,7 @@
 // =============================
 //  Power profile
 // =============================
-enum class PowerProfile : uint8_t
-{
-    ALWAYS_ON = 0,
-    LOW_POWER,
-    DEEP_SLEEP,
-};
+using farm::PowerProfile;
 
 // =============================
 //  Wakeup source

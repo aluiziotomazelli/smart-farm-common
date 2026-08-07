@@ -139,6 +139,16 @@ enum class OtaErrorCode : uint8_t
     UNKNOWN_ERROR = 0xFF,            ///< Unclassified or unexpected failure
 };
 
+/**
+ * @brief Power profile defining the node's current operational power regime.
+ */
+enum class PowerProfile : uint8_t
+{
+    ALWAYS_ON = 0, ///< Node receiver is continuously active (instant command delivery)
+    LOW_POWER = 1, ///< Node uses modem/light sleep with fast wake intervals
+    DEEP_SLEEP = 2,///< Node powers down radio between measurements (queued commands)
+};
+
 #pragma pack(push, 1)
 
 /**
@@ -146,6 +156,7 @@ enum class OtaErrorCode : uint8_t
  */
 struct WaterLevelReport
 {
+    PowerProfile power_profile; ///< Current power regime of the node
     uint16_t level_permille;    ///< Calculated level in permille (0 to 1000)
     float distance_cm;          ///< Raw measured distance to water surface in centimeters
     uint16_t battery_mv;        ///< Battery voltage in millivolts
@@ -162,6 +173,7 @@ struct WaterLevelReport
  */
 struct SolarSensorReport
 {
+    PowerProfile power_profile; ///< Current power regime of the node
     uint16_t voltage_mv; ///< Panel voltage in millivolts
     uint16_t current_ma; ///< Generated current in milliamperes
     uint16_t power_mw;   ///< Calculated instantaneous power in milliwatts
@@ -202,6 +214,7 @@ struct TimeSyncCommand
  */
 struct OtaStatusReport
 {
+    PowerProfile power_profile; ///< Current power regime of the node
     OtaExecResult result;    ///< Execution result of the OTA process
     OtaErrorCode error_code; ///< Detailed error reason (NONE if success)
     uint8_t fw_major;        ///< Running firmware major version number
