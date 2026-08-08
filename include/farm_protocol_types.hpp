@@ -5,6 +5,8 @@
 
 namespace farm {
 
+static constexpr uint8_t MAX_HUB_NODES = 8;
+
 /**
  * @brief Application-specific Node IDs for the Smart Farm ecosystem.
  */
@@ -147,6 +149,30 @@ enum class PowerProfile : uint8_t
     ALWAYS_ON = 0, ///< Node receiver is continuously active (instant command delivery)
     LOW_POWER = 1, ///< Node uses modem/light sleep with fast wake intervals
     DEEP_SLEEP = 2,///< Node powers down radio between measurements (queued commands)
+};
+
+/**
+ * @brief Canonical representation of node metadata across the farm ecosystem.
+ */
+struct NodeMetadata
+{
+    NodeId          node_id{NodeId::UNKNOWN};
+    PowerProfile    power_profile{PowerProfile::DEEP_SLEEP};
+    uint8_t         fw_major{0};
+    uint8_t         fw_minor{0};
+    uint8_t         fw_patch{0};
+
+    bool operator==(const NodeMetadata& other) const {
+        return node_id == other.node_id &&
+               power_profile == other.power_profile &&
+               fw_major == other.fw_major &&
+               fw_minor == other.fw_minor &&
+               fw_patch == other.fw_patch;
+    }
+
+    bool operator!=(const NodeMetadata& other) const {
+        return !(*this == other);
+    }
 };
 
 #pragma pack(push, 1)
