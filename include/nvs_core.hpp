@@ -49,16 +49,15 @@ public:
     NvsCore(IPersistenceBackend& rtc_core, IPersistenceBackend& nvs_core);
     virtual ~NvsCore() override = default;
 
-    esp_err_t load_core(CoreStorage& core) override;
-    esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) override;
-
-    void process_boot_reasons(
+    esp_err_t init(
         CoreStorage& core,
+        const CoreStorage& default_core,
         esp_reset_reason_t reset_reason,
         esp_sleep_wakeup_cause_t wakeup_cause,
         bool& out_pending_commit) override;
 
-    esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core) override;
+    esp_err_t load_core(CoreStorage& core) override;
+    esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) override;
 
 private:
     IPersistenceBackend& rtc_core_;
@@ -67,4 +66,12 @@ private:
     esp_err_t load_raw_core(CoreStorage& core_out);
     esp_err_t validate_core_data(const CoreStorage& core);
     bool is_data_dirty(const CoreStorage& new_core) const;
+
+    void process_boot_reasons(
+        CoreStorage& core,
+        esp_reset_reason_t reset_reason,
+        esp_sleep_wakeup_cause_t wakeup_cause,
+        bool& out_pending_commit);
+
+    esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core);
 };

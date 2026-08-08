@@ -17,14 +17,13 @@ class INvsCore
 public:
     virtual ~INvsCore() = default;
 
-    virtual esp_err_t load_core(CoreStorage& core) = 0;
-    virtual esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) = 0;
-
-    virtual void process_boot_reasons(
+    virtual esp_err_t init(
         CoreStorage& core,
+        const CoreStorage& default_core,
         esp_reset_reason_t reset_reason,
         esp_sleep_wakeup_cause_t wakeup_cause,
         bool& out_pending_commit) = 0;
 
-    virtual esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core) = 0;
+    virtual esp_err_t load_core(CoreStorage& core) = 0;
+    virtual esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) = 0;
 };

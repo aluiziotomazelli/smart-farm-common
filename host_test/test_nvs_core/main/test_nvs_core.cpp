@@ -382,12 +382,12 @@ TEST_F(NvsCoreTest, NoDoubleSaveWhenUnchanged)
 }
 
 /**
- * Test: Create default storage
+ * Test: Init creates default storage when empty
  *
- * Scenario: Calling create_default_storage with a default CoreStorage structure
- * Expected: Storage is saved to backends and core is updated with default_core
+ * Scenario: Calling init when NVS/RTC storage is empty
+ * Expected: Storage is populated with default_core, boot_count set to 1, out_pending_commit set to true
  */
-TEST_F(NvsCoreTest, CreateDefaultStorage)
+TEST_F(NvsCoreTest, InitCreatesDefaultWhenStorageEmpty)
 {
     CoreStorage default_core;
     default_core.reset();
@@ -396,12 +396,23 @@ TEST_F(NvsCoreTest, CreateDefaultStorage)
     default_core.power_profile = farm::PowerProfile::ALWAYS_ON;
 
     CoreStorage core;
-    esp_err_t ret = nvs_core_->create_default_storage(core, default_core);
+    bool pending_commit = false;
+
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_POWERON,
+        ESP_SLEEP_WAKEUP_UNDEFINED,
+        pending_commit
+    );
 
     EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.node_id, farm::NodeId::HUB);
     EXPECT_EQ(core.node_type, farm::NodeType::HUB);
     EXPECT_EQ(core.power_profile, farm::PowerProfile::ALWAYS_ON);
+    EXPECT_EQ(core.boot_count, 1);
+    EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
+    EXPECT_TRUE(pending_commit);
 
     // Verify it was stored in NVS
     CoreStorage nvs_stored = GetStoredNvsData();
@@ -409,17 +420,29 @@ TEST_F(NvsCoreTest, CreateDefaultStorage)
 }
 
 /**
- * Test: Process boot reasons - Power On
+ * Test: Process boot reasons via Init - Power On
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsPowerOn)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 5;
+    existing_core.crash_count = 0;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 5;
-    core.crash_count = 0;
+    CoreStorage default_core;
     bool pending_commit = true;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_POWERON, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_POWERON,
+        ESP_SLEEP_WAKEUP_UNDEFINED,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 6);
     EXPECT_EQ(core.crash_count, 0);
     EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
@@ -427,17 +450,29 @@ TEST_F(NvsCoreTest, ProcessBootReasonsPowerOn)
 }
 
 /**
- * Test: Process boot reasons - Crash Reset
+ * Test: Process boot reasons via Init - Crash Reset
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsCrash)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 10;
+    existing_core.crash_count = 1;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 10;
-    core.crash_count = 1;
+    CoreStorage default_core;
     bool pending_commit = false;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_PANIC, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_PANIC,
+        ESP_SLEEP_WAKEUP_UNDEFINED,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 11);
     EXPECT_EQ(core.crash_count, 2);
     EXPECT_EQ(core.last_wake, WakeSource::CRASH);
@@ -445,64 +480,112 @@ TEST_F(NvsCoreTest, ProcessBootReasonsCrash)
 }
 
 /**
- * Test: Process boot reasons - Software Reset
+ * Test: Process boot reasons via Init - Software Reset
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsSoftwareRestart)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 3;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 3;
+    CoreStorage default_core;
     bool pending_commit = true;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_SW, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_SW,
+        ESP_SLEEP_WAKEUP_UNDEFINED,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 4);
     EXPECT_EQ(core.last_wake, WakeSource::RESTART);
     EXPECT_FALSE(pending_commit);
 }
 
 /**
- * Test: Process boot reasons - Deep Sleep Timer Wakeup
+ * Test: Process boot reasons via Init - Deep Sleep Timer Wakeup
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepTimer)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 20;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 20;
+    CoreStorage default_core;
     bool pending_commit = true;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_TIMER, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_DEEPSLEEP,
+        ESP_SLEEP_WAKEUP_TIMER,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::TIMER);
     EXPECT_FALSE(pending_commit);
 }
 
 /**
- * Test: Process boot reasons - Deep Sleep GPIO Wakeup
+ * Test: Process boot reasons via Init - Deep Sleep GPIO Wakeup
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepGpio)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 20;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 20;
+    CoreStorage default_core;
     bool pending_commit = true;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_GPIO, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_DEEPSLEEP,
+        ESP_SLEEP_WAKEUP_GPIO,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::GPIO);
     EXPECT_FALSE(pending_commit);
 }
 
 /**
- * Test: Process boot reasons - Unknown/Default Reset
+ * Test: Process boot reasons via Init - Unknown/Default Reset
  */
 TEST_F(NvsCoreTest, ProcessBootReasonsUnknown)
 {
+    CoreStorage existing_core;
+    existing_core.reset();
+    existing_core.boot_count = 100;
+    nvs_core_->save_core(existing_core, true);
+
     CoreStorage core;
-    core.boot_count = 100;
+    CoreStorage default_core;
     bool pending_commit = true;
 
-    nvs_core_->process_boot_reasons(core, ESP_RST_UNKNOWN, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
+    esp_err_t ret = nvs_core_->init(
+        core,
+        default_core,
+        ESP_RST_UNKNOWN,
+        ESP_SLEEP_WAKEUP_UNDEFINED,
+        pending_commit
+    );
 
+    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 101);
     EXPECT_EQ(core.last_wake, WakeSource::UNKNOWN);
     EXPECT_FALSE(pending_commit);

@@ -15,6 +15,32 @@ NvsCore::NvsCore(IPersistenceBackend& rtc_core, IPersistenceBackend& nvs_core)
 {
 }
 
+esp_err_t NvsCore::init(
+    CoreStorage& core,
+    const CoreStorage& default_core,
+    esp_reset_reason_t reset_reason,
+    esp_sleep_wakeup_cause_t wakeup_cause,
+    bool& out_pending_commit)
+{
+    out_pending_commit = false;
+    esp_err_t ret = load_core(core);
+
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Core storage load failed (%s), recreating default storage", esp_err_to_name(ret));
+
+        ret = create_default_storage(core, default_core);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to create default storage: %s", esp_err_to_name(ret));
+            return ret;
+        }
+        out_pending_commit = true;
+    }
+    process_boot_reasons(core, reset_reason, wakeup_cause, out_pending_commit);
+    ESP_LOGI(TAG, "Core storage initialized: boot_count=%d, crash_count=%d", core.boot_count, core.crash_count);
+
+    return ESP_OK;
+}
+
 esp_err_t NvsCore::load_core(CoreStorage& core)
 {
     CoreStorage temp_core = {};
@@ -64,13 +90,16 @@ esp_err_t NvsCore::save_core(const CoreStorage& core, bool force_nvs_commit)
     return ESP_OK;
 }
 
+// =================================================
+// Private methods
+// =================================================
+
 void NvsCore::process_boot_reasons(
     CoreStorage& core,
     esp_reset_reason_t reset_reason,
     esp_sleep_wakeup_cause_t wakeup_cause,
     bool& out_pending_commit)
 {
-    out_pending_commit = false;
     core.boot_count++;
 
     switch (reset_reason) {
@@ -129,10 +158,6 @@ esp_err_t NvsCore::create_default_storage(CoreStorage& core, const CoreStorage& 
     }
     return ret;
 }
-
-// =================================================
-// Private methods
-// =================================================
 
 esp_err_t NvsCore::load_raw_core(CoreStorage& out)
 {

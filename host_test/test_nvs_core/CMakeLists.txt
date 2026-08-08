@@ -5,7 +5,7 @@ list(APPEND EXTRA_COMPONENT_DIRS
     "../.."
     # "../common"
     "../gtest"
-    "../../external"
+    "../../external/idf_hals"
     "$ENV{IDF_PATH}/tools/mocks/driver"
 )
 
