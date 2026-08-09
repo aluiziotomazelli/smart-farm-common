@@ -199,10 +199,18 @@ struct WaterLevelReport
  */
 struct SolarSensorReport
 {
-    PowerProfile power_profile; ///< Current power regime of the node
-    uint16_t voltage_mv; ///< Panel voltage in millivolts
-    uint16_t current_ma; ///< Generated current in milliamperes
-    uint16_t power_mw;   ///< Calculated instantaneous power in milliwatts
+    PowerProfile power_profile;   ///< Node energy mode (ALWAYS_ON, LOW_POWER, DEEP_SLEEP)
+    uint16_t isc_current_ma;      ///< Instantaneous short-circuit current in mA (0 - 819 mA)
+    uint16_t irradiance_wm2;      ///< Estimated solar irradiance in W/m² (0 - 1200 W/m²)
+    uint16_t estimated_power_w;   ///< Estimated generation capacity of the 2.64 kWp array in W
+    uint16_t battery_mv;          ///< Sensor node battery voltage in mV
+    uint8_t  battery_percent;     ///< Sensor node battery percentage level (0-100%)
+    BatteryState battery_state;   ///< Sensor node battery classification
+    SensorStatus status;          ///< Sensor health status (OK, ERROR_HARDWARE, etc.)
+    uint16_t max_current_ma;      ///< Current peak recorded during the current day
+    uint32_t daily_yield_mah;     ///< Accumulated daily current integral in mAh
+    bool     is_night_mode;       ///< Indicates whether the node is in night mode
+    uint64_t unix_time;           ///< UTC Epoch timestamp in ms (0 if not synchronized)
 };
 
 /**
