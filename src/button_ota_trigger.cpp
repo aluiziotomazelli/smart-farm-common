@@ -58,6 +58,13 @@ void ButtonOtaTrigger::disarm()
     listener_ = nullptr;
 }
 
+void ButtonOtaTrigger::notify()
+{
+    if (listener_) {
+        listener_->on_ota_triggered(OtaTriggerSource::BUTTON);
+    }
+}
+
 void ButtonOtaTrigger::poll_task(void* arg)
 {
     auto* self = static_cast<ButtonOtaTrigger*>(arg);

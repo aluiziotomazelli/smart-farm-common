@@ -19,7 +19,7 @@ public:
     /**
      * @brief Manually notify the listener to trigger an OTA update.
      */
-    void notify();
+    void notify() override;
 
 private:
     IOtaTriggerListener* listener_ = nullptr;

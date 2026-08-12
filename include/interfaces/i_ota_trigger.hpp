@@ -49,4 +49,9 @@ public:
      * @brief Disarm/unregister the listener.
      */
     virtual void disarm() = 0;
+
+    /**
+     * @brief Manually notify the listener to trigger an OTA update.
+     */
+    virtual void notify() = 0;
 };

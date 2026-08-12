@@ -36,6 +36,9 @@ public:
     /** @copydoc IOtaTrigger::disarm */
     void disarm() override;
 
+    /** @copydoc IOtaTrigger::notify */
+    void notify() override;
+
 private:
     /**
      * @brief Private worker task function to poll the GPIO button.
