@@ -41,7 +41,8 @@ enum class PayloadType : uint8_t
     WATER_LEVEL_REPORT = 0x01,  ///< Water tank level, battery, and sensor telemetry
     SOLAR_SENSOR_REPORT = 0x02, ///< Solar voltage, current, and power telemetry
     WEATHER_REPORT = 0x03,      ///< Weather sensor data telemetry
-    PUMP_CONTROL_STATUS = 0x04, ///< Pump operation status and circuit state
+    LOAD_CONTROL_STATUS = 0x04, ///< Load operation status and circuit state
+    TANK_LEVEL_UPDATE = 0x05,   ///< Tank level update dispatched from Hub to actuators
     OTA_STATUS_REPORT = 0x45,   ///< Over-The-Air firmware update outcome report
     REQUEST_TIME_SYNC = 0x46,   ///< Request for time synchronization from the Hub
 };
@@ -53,8 +54,8 @@ enum class PayloadType : uint8_t
 enum class CommandType : uint8_t
 {
     SLEEP_OVERRIDE = 0x40, ///< Instructs a sleeping node to override its local sleep duration
-    PUMP_TURN_ON = 0x41,   ///< Instructs the pump actuator to activate
-    PUMP_TURN_OFF = 0x42,  ///< Instructs the pump actuator to deactivate
+    LOAD_ON = 0x41,        ///< Instructs the actuator to energize a load
+    LOAD_OFF = 0x42,       ///< Instructs the actuator to de-energize a load
     SYNC_TIME = 0x43,      ///< Instructs a node to synchronize system time via ESP-NOW
 };
 
@@ -109,6 +110,18 @@ enum class PowerSource : uint8_t
     UNKNOWN = 0x00, ///< Source not yet determined (initial state or actuator not paired)
     SOLAR = 0x01,   ///< Connected to solar/inverter circuit
     GRID = 0x02,    ///< Connected to utility grid circuit (fallback)
+};
+
+/**
+ * @brief Current execution and fault state of a switched power load/contactor.
+ */
+enum class LoadState : uint8_t
+{
+    IDLE = 0x00,                  ///< Load is de-energized and inactive
+    RUNNING = 0x01,               ///< Contactor energized and output active
+    ERROR_NO_SOURCE = 0x02,       ///< Selected power source has no available voltage
+    ERROR_CONTACTOR_STUCK = 0x03, ///< Contactor output remained energized after release command
+    ERROR_TIMEOUT = 0x04,         ///< Load deactivated due to watchdog timeout expiry
 };
 
 /**
@@ -222,13 +235,44 @@ struct SleepOverrideCommand
 };
 
 /**
- * @brief Command payload sent to control pump activation and safety parameters.
+ * @brief Command payload sent to activate a load with a watchdog timeout.
  */
-struct PumpCommand
+struct LoadOnCommand
 {
-    CommandType action;  ///< Command action (PUMP_TURN_ON or PUMP_TURN_OFF)
-    uint16_t watchdog_s; ///< Auto-off watchdog timeout in seconds (0 = disable watchdog)
-    uint8_t circuit_id;  ///< Target pump/circuit ID (0 = default primary circuit)
+    uint8_t circuit_id;          ///< Target circuit ID (0 = default primary circuit)
+    PowerSource power_source;    ///< Selected power source (GRID or SOLAR)
+    uint16_t watchdog_timeout_s; ///< Auto-off watchdog timeout in seconds (0 = disable watchdog)
+};
+
+/**
+ * @brief Command payload sent to immediately deactivate a load.
+ */
+struct LoadOffCommand
+{
+    uint8_t circuit_id;          ///< Target circuit ID to deactivate
+};
+
+/**
+ * @brief Status report sent by actuator nodes regarding load operational state.
+ */
+struct LoadControlStatus
+{
+    uint8_t circuit_id;                 ///< Circuit identifier
+    PowerProfile power_profile;         ///< Current power regime of the node
+    ControlMode control_mode;           ///< Active control mode (AUTO or MANUAL)
+    PowerSource active_power_source;    ///< Currently active power source (SOLAR or GRID)
+    LoadState load_state;               ///< Current load state (IDLE, RUNNING, ERROR_*)
+    uint32_t runtime_s;                 ///< Current active cycle runtime in seconds
+    uint32_t uptime_s;                  ///< Node lifetime uptime in seconds
+};
+
+/**
+ * @brief Tank level update dispatched by Hub to peripheral actuators.
+ */
+struct TankLevelUpdate
+{
+    uint8_t tank_id;          ///< Target tank ID
+    uint16_t level_permille;  ///< Current water level in permille (0 to 1000)
 };
 
 /**
@@ -274,7 +318,18 @@ static_assert(
 static_assert(
     sizeof(farm::TimeSyncCommand) <= APP_MAX_PAYLOAD_SIZE,
     "TimeSyncCommand payload exceeds ESP-NOW payload limit");
-static_assert(sizeof(farm::PumpCommand) <= APP_MAX_PAYLOAD_SIZE, "PumpCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::LoadOnCommand) <= APP_MAX_PAYLOAD_SIZE,
+    "LoadOnCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::LoadOffCommand) <= APP_MAX_PAYLOAD_SIZE,
+    "LoadOffCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::LoadControlStatus) <= APP_MAX_PAYLOAD_SIZE,
+    "LoadControlStatus payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::TankLevelUpdate) <= APP_MAX_PAYLOAD_SIZE,
+    "TankLevelUpdate payload exceeds ESP-NOW payload limit");
 static_assert(
     sizeof(farm::OtaStatusReport) <= APP_MAX_PAYLOAD_SIZE,
     "OtaStatusReport payload exceeds ESP-NOW payload limit");

@@ -4,6 +4,7 @@ idf_component_register(
         "src/espnow_ota_trigger.cpp"
         "src/nvs_core.cpp"
         "src/persistence_backend.cpp"
+        "src/led_controller.cpp"
     INCLUDE_DIRS
         "include"
         "include/interfaces"
@@ -12,6 +13,7 @@ idf_component_register(
         esp_timer
         nvs_flash
         idf_hals
+        freertos
 )
 
 if(IDF_TARGET STREQUAL "linux")
