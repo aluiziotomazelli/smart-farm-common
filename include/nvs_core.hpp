@@ -1,77 +1,46 @@
 #pragma once
 
-#include <type_traits>
-
-#include "esp_err.h"
-#include "esp_rom_crc.h"
-
-#include "interfaces/i_nvs_core.hpp"
-#include "interfaces/i_hal_nvs.hpp"
+#include "app_storage.hpp"
 #include "core_types.hpp"
+#include "interfaces/i_nvs_core.hpp"
 #include "interfaces/i_persistence_backend.hpp"
 
 /**
  * @class NvsCore
- * @brief Base class for NVS persistence management.
+ * @brief Persistence manager for common Node CoreData.
  *
- * This class provides a common interface and helper methods for saving and loading
- * data to/from NVS, while decoupling from the hardware via IHalNvs.
+ * Inherits storage management (RTC/NVS fallback, CRC validation, dirty check)
+ * from AppStorage<CoreData, CORE_MAGIC, CORE_VERSION>.
  */
-class NvsCore : public virtual INvsCore
+class NvsCore : public INvsCore,
+                public AppStorage<CoreData, CORE_MAGIC, CORE_VERSION>
 {
-protected:
-    /**
-     * @brief Calculates the CRC of the given data.
-     * @tparam T The type of the data to calculate the CRC of.
-     * @param data The data to calculate the CRC of.
-     * @return The CRC of the given data.
-     *
-     * @note: Compile-time validations:
-     *          - T must be standard_layout (safe for offsetof)
-     *          - T must have a crc field (not at offset 0)
-     */
-    template <typename T> uint32_t calculate_crc(const T& data)
-    {
-        static_assert(std::is_standard_layout_v<T>, "T must be standard_layout for safe offset calculation");
-        static_assert(offsetof(T, crc) != 0, "T must have a non-first crc field");
-
-        // Include from espnow_manager or define locally
-        return esp_rom_crc32_le(0, reinterpret_cast<const uint8_t*>(&data), offsetof(T, crc));
-    };
-
 public:
-    /**
-     * @brief Construct a new NvsCore object.
-     * @param ns The NVS namespace to use.
-     * @param hal Reference to the INvsHAL implementation.
-     */
-    // NvsCore(const char* ns, idf_hals::INvsHAL& hal);
     NvsCore(IPersistenceBackend& rtc_core, IPersistenceBackend& nvs_core);
     virtual ~NvsCore() override = default;
 
-    esp_err_t init(
-        CoreStorage& core,
-        const CoreStorage& default_core,
+    /** @copydoc INvsCore::init */
+    esp_err_t init(CoreData& core, const CoreData& default_core) override
+    {
+        return init_app_data_impl(core, default_core);
+    }
+
+    /** @copydoc INvsCore::load_core */
+    esp_err_t load_core(CoreData& core) override
+    {
+        return load_app_data_impl(core);
+    }
+
+    /** @copydoc INvsCore::save_core */
+    esp_err_t save_core(const CoreData& core, bool force_nvs_commit = false) override
+    {
+        return save_app_data_impl(core, force_nvs_commit);
+    }
+
+    /** @copydoc INvsCore::process_boot_reasons */
+    void process_boot_reasons(
+        CoreData& core,
         esp_reset_reason_t reset_reason,
         esp_sleep_wakeup_cause_t wakeup_cause,
         bool& out_pending_commit) override;
-
-    esp_err_t load_core(CoreStorage& core) override;
-    esp_err_t save_core(const CoreStorage& core, bool force_nvs_commit = false) override;
-
-private:
-    IPersistenceBackend& rtc_core_;
-    IPersistenceBackend& nvs_core_;
-
-    esp_err_t load_raw_core(CoreStorage& core_out);
-    esp_err_t validate_core_data(const CoreStorage& core);
-    bool is_data_dirty(const CoreStorage& new_core) const;
-
-    void process_boot_reasons(
-        CoreStorage& core,
-        esp_reset_reason_t reset_reason,
-        esp_sleep_wakeup_cause_t wakeup_cause,
-        bool& out_pending_commit);
-
-    esp_err_t create_default_storage(CoreStorage& core, const CoreStorage& default_core);
 };

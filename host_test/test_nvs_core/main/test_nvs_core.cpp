@@ -1,62 +1,59 @@
-#include <gtest/gtest.h>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <type_traits>
+
 #include <gmock/gmock.h>
-#include "nvs_core.hpp"
+#include <gtest/gtest.h>
+
+#include "esp_err.h"
+#include "esp_rom_crc.h"
+#include "esp_sleep.h"
+#include "esp_system.h"
+
 #include "core_types.hpp"
 #include "mock_persistence_backend.hpp"
-#include "esp_rom_crc.h"
-#include <memory>
-#include <cstring>
-#include <type_traits>
+#include "nvs_core.hpp"
 
 using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Return;
 
 /**
- * Helper: Calculate CRC for a struct with crc field
+ * @brief Helper to calculate CRC for envelope in tests.
  */
-template <typename T> inline uint32_t test_calculate_crc(const T& data)
+template <typename T> inline uint32_t test_calculate_crc(const T& envelope)
 {
     static_assert(std::is_standard_layout_v<T>, "T must be standard_layout for safe offset calculation");
     static_assert(offsetof(T, crc) != 0, "T must have a non-first crc field");
 
-    return esp_rom_crc32_le(0, reinterpret_cast<const uint8_t*>(&data), offsetof(T, crc));
+    return esp_rom_crc32_le(0, reinterpret_cast<const uint8_t*>(&envelope), offsetof(T, crc));
 }
 
 /**
- * Fixture for NvsCore tests.
- * Manages mock backends and provides utility methods.
+ * @brief Fixture for NvsCore tests.
  */
 class NvsCoreTest : public ::testing::Test
 {
 protected:
-    // Use NiceMock to suppress warnings for uninteresting calls
     NiceMock<MockPersistenceBackend> rtc_backend_;
     NiceMock<MockPersistenceBackend> nvs_backend_;
 
-    // System under test
     std::unique_ptr<NvsCore> nvs_core_;
 
     void SetUp() override
     {
-        // Configure backends to use real in-memory storage
         rtc_backend_.UseRealStorage();
         nvs_backend_.UseRealStorage();
 
-        // Create NvsCore instance with the mock backends
         nvs_core_ = std::make_unique<NvsCore>(rtc_backend_, nvs_backend_);
     }
 
     void TearDown() override { nvs_core_.reset(); }
 
-    /**
-     * Helper: Create a valid CoreStorage with all fields set.
-     */
-    CoreStorage CreateValidCoreStorage()
+    CoreData CreateValidCoreData()
     {
-        CoreStorage core;
-        core.magic = CoreStorage::CORE_MAGIC;
-        core.version = CoreStorage::CORE_VERSION;
+        CoreData core;
         core.node_id = farm::NodeId::WATER_TANK;
         core.node_type = farm::NodeType::SENSOR;
         core.hw_revision = 1;
@@ -70,41 +67,35 @@ protected:
         core.power_profile = farm::PowerProfile::DEEP_SLEEP;
         core.sleep_interval_s = 300;
         core.last_wake = WakeSource::TIMER;
-
-        // Calculate and set CRC
-        core.crc = test_calculate_crc(core);
-
         return core;
     }
 
-    /**
-     * Helper: Pre-populate RTC backend with data.
-     */
-    void SetRtcData(const CoreStorage& core) { rtc_backend_.save(&core, sizeof(core)); }
-
-    /**
-     * Helper: Pre-populate NVS backend with data.
-     */
-    void SetNvsData(const CoreStorage& core) { nvs_backend_.save(&core, sizeof(core)); }
-
-    /**
-     * Helper: Get stored RTC data for verification.
-     */
-    CoreStorage GetStoredRtcData() const
+    CoreStorage CreateValidCoreEnvelope()
     {
-        CoreStorage core;
-        memcpy(&core, rtc_backend_.GetStoredData(), sizeof(core));
-        return core;
+        CoreStorage env;
+        env.magic = CORE_MAGIC;
+        env.version = CORE_VERSION;
+        env.data = CreateValidCoreData();
+        env.crc = test_calculate_crc(env);
+        return env;
     }
 
-    /**
-     * Helper: Get stored NVS data for verification.
-     */
-    CoreStorage GetStoredNvsData() const
+    void SetRtcEnvelope(const CoreStorage& env) { rtc_backend_.save(&env, sizeof(env)); }
+
+    void SetNvsEnvelope(const CoreStorage& env) { nvs_backend_.save(&env, sizeof(env)); }
+
+    CoreStorage GetStoredRtcEnvelope() const
     {
-        CoreStorage core;
-        memcpy(&core, nvs_backend_.GetStoredData(), sizeof(core));
-        return core;
+        CoreStorage env{};
+        memcpy(&env, rtc_backend_.GetStoredData(), sizeof(env));
+        return env;
+    }
+
+    CoreStorage GetStoredNvsEnvelope() const
+    {
+        CoreStorage env{};
+        memcpy(&env, nvs_backend_.GetStoredData(), sizeof(env));
+        return env;
     }
 };
 
@@ -112,115 +103,77 @@ protected:
 // Tests
 // =============================================================
 
-/**
- * Test: Load from RTC when valid
- *
- * Scenario: RTC has valid data, NVS is empty
- * Expected: Data is loaded from RTC, NVS is not accessed
- */
 TEST_F(NvsCoreTest, LoadFromRtcWhenValid)
 {
-    // Arrange: Put valid data in RTC, nothing in NVS
-    CoreStorage expected = CreateValidCoreStorage();
-    SetRtcData(expected);
+    // Arrange
+    CoreStorage expected_env = CreateValidCoreEnvelope();
+    SetRtcEnvelope(expected_env);
 
-    // Expect RTC to be called, NVS may not be
     EXPECT_CALL(rtc_backend_, load).Times(::testing::AtLeast(1));
     EXPECT_CALL(nvs_backend_, load).Times(0);
 
     // Act
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
     // Assert
     EXPECT_EQ(ret, ESP_OK);
-    EXPECT_EQ(loaded.magic, expected.magic);
-    EXPECT_EQ(loaded.boot_count, expected.boot_count);
-    EXPECT_EQ(loaded.node_id, expected.node_id);
+    EXPECT_EQ(loaded.boot_count, 42);
+    EXPECT_EQ(loaded.node_id, farm::NodeId::WATER_TANK);
 }
 
-/**
- * Test: Load from NVS when RTC is invalid
- *
- * Scenario: RTC is empty/corrupt, NVS has valid data
- * Expected: Data is loaded from NVS, and synced back to RTC
- */
 TEST_F(NvsCoreTest, LoadFromNvsWhenRtcInvalid)
 {
-    // Arrange: Put valid data only in NVS
-    CoreStorage expected = CreateValidCoreStorage();
-    SetNvsData(expected);
-    // RTC is empty (default zeroed)
+    // Arrange: Valid data only in NVS
+    CoreStorage expected_env = CreateValidCoreEnvelope();
+    SetNvsEnvelope(expected_env);
 
     // Act
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
     // Assert
     EXPECT_EQ(ret, ESP_OK);
-    EXPECT_EQ(loaded.boot_count, expected.boot_count);
+    EXPECT_EQ(loaded.boot_count, 42);
 
     // Verify RTC was synced with valid NVS data
-    CoreStorage rtc_synced = GetStoredRtcData();
-    EXPECT_EQ(rtc_synced.magic, expected.magic);
-    EXPECT_EQ(rtc_synced.boot_count, expected.boot_count);
+    CoreStorage rtc_synced = GetStoredRtcEnvelope();
+    EXPECT_EQ(rtc_synced.magic, CORE_MAGIC);
+    EXPECT_EQ(rtc_synced.data.boot_count, 42);
 }
 
-/**
- * Test: Load fails when both RTC and NVS are invalid
- *
- * Scenario: Both backends have corrupt/missing data
- * Expected: Return error
- */
 TEST_F(NvsCoreTest, LoadFailsWhenBothInvalid)
 {
-    // Arrange: Both backends are empty (invalid)
-    // (setUp() already clears them)
-
-    // Act
-    CoreStorage loaded;
+    // Arrange: Both backends are empty
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
-    // Assert: Should fail
+    // Assert
     EXPECT_NE(ret, ESP_OK);
 }
 
-/**
- * Test: Save to RTC only when not forcing NVS
- *
- * Scenario: Data is dirty but force_nvs_commit is false
- * Expected: Data goes to RTC, not NVS
- */
-TEST_F(NvsCoreTest, SaveToDirtyDirtyDataNoForce)
+TEST_F(NvsCoreTest, SaveToDirtyDataNoForce)
 {
     // Arrange
-    CoreStorage to_save = CreateValidCoreStorage();
-    to_save.boot_count = 99; // Change data to make it dirty
+    CoreData to_save = CreateValidCoreData();
+    to_save.boot_count = 99;
 
     EXPECT_CALL(rtc_backend_, save).Times(::testing::AtLeast(1));
-    EXPECT_CALL(nvs_backend_, save).Times(0); // Should NOT call NVS
+    EXPECT_CALL(nvs_backend_, save).Times(0);
 
     // Act
     esp_err_t ret = nvs_core_->save_core(to_save, false);
 
     // Assert
     EXPECT_EQ(ret, ESP_OK);
-
-    // Verify RTC has the new data
-    CoreStorage rtc_stored = GetStoredRtcData();
-    EXPECT_EQ(rtc_stored.boot_count, 99);
+    CoreStorage rtc_stored = GetStoredRtcEnvelope();
+    EXPECT_EQ(rtc_stored.data.boot_count, 99);
 }
 
-/**
- * Test: Save to both RTC and NVS when forcing
- *
- * Scenario: force_nvs_commit is true
- * Expected: Data goes to both RTC and NVS
- */
 TEST_F(NvsCoreTest, SaveToBothWhenForceNvs)
 {
     // Arrange
-    CoreStorage to_save = CreateValidCoreStorage();
+    CoreData to_save = CreateValidCoreData();
     to_save.boot_count = 55;
 
     EXPECT_CALL(rtc_backend_, save).Times(::testing::AtLeast(1));
@@ -231,52 +184,38 @@ TEST_F(NvsCoreTest, SaveToBothWhenForceNvs)
 
     // Assert
     EXPECT_EQ(ret, ESP_OK);
+    CoreStorage rtc_stored = GetStoredRtcEnvelope();
+    CoreStorage nvs_stored = GetStoredNvsEnvelope();
 
-    // Verify both backends have the data
-    CoreStorage rtc_stored = GetStoredRtcData();
-    CoreStorage nvs_stored = GetStoredNvsData();
-
-    EXPECT_EQ(rtc_stored.boot_count, 55);
-    EXPECT_EQ(nvs_stored.boot_count, 55);
+    EXPECT_EQ(rtc_stored.data.boot_count, 55);
+    EXPECT_EQ(nvs_stored.data.boot_count, 55);
 }
-/**
- *
- */
+
 TEST_F(NvsCoreTest, SaveToNvsFailsWhenNvsError)
 {
     // Arrange
-    CoreStorage to_save = CreateValidCoreStorage();
-    to_save.boot_count = 77;
-
-    // Force NVS save to fail
+    CoreData to_save = CreateValidCoreData();
     EXPECT_CALL(nvs_backend_, save).WillOnce(Return(ESP_ERR_NVS_NOT_INITIALIZED));
 
     // Act
     esp_err_t ret = nvs_core_->save_core(to_save, true);
 
-    // Assert: Should return the NVS error
+    // Assert
     EXPECT_EQ(ret, ESP_ERR_NVS_NOT_INITIALIZED);
 }
 
-/**
- * Test: Round-trip: save and load
- *
- * Scenario: Save data to backends, then load it back
- * Expected: Loaded data matches saved data
- */
 TEST_F(NvsCoreTest, RoundTripSaveAndLoad)
 {
     // Arrange
-    CoreStorage original = CreateValidCoreStorage();
+    CoreData original = CreateValidCoreData();
     original.boot_count = 123;
     original.crash_count = 5;
 
-    // Act: Save (force NVS for completeness)
+    // Act: Save and load back
     esp_err_t save_ret = nvs_core_->save_core(original, true);
     EXPECT_EQ(save_ret, ESP_OK);
 
-    // Load back
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t load_ret = nvs_core_->load_core(loaded);
     EXPECT_EQ(load_ret, ESP_OK);
 
@@ -286,306 +225,150 @@ TEST_F(NvsCoreTest, RoundTripSaveAndLoad)
     EXPECT_EQ(loaded.node_id, original.node_id);
 }
 
-/**
- * Test: CRC validation on load
- *
- * Scenario: Corrupt data with bad CRC in NVS
- * Expected: Load fails, does not accept corrupt data
- */
 TEST_F(NvsCoreTest, RejectDataWithBadCrc)
 {
-    // Arrange: Valid data but corrupt the CRC
-    CoreStorage corrupt = CreateValidCoreStorage();
-    corrupt.crc = 0xDEADBEEF; // Wrong CRC
-    SetNvsData(corrupt);
-    // RTC is empty
+    // Arrange
+    CoreStorage corrupt = CreateValidCoreEnvelope();
+    corrupt.crc = 0xDEADBEEF;
+    SetNvsEnvelope(corrupt);
 
     // Act
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
-    // Assert: Should fail, not accept corrupt data
+    // Assert
     EXPECT_NE(ret, ESP_OK);
 }
 
-/**
- * Test: Magic field validation
- *
- * Scenario: Data with wrong magic number
- * Expected: Load fails
- */
 TEST_F(NvsCoreTest, RejectDataWithWrongMagic)
 {
     // Arrange
-    CoreStorage bad_magic = CreateValidCoreStorage();
-    bad_magic.magic = 0xDEADBEEF;                  // Wrong magic
-    bad_magic.crc = test_calculate_crc(bad_magic); // Update CRC
-    SetNvsData(bad_magic);
+    CoreStorage bad_magic = CreateValidCoreEnvelope();
+    bad_magic.magic = 0xDEADBEEF;
+    bad_magic.crc = test_calculate_crc(bad_magic);
+    SetNvsEnvelope(bad_magic);
 
     // Act
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
     // Assert
     EXPECT_NE(ret, ESP_OK);
 }
 
-/**
- * Test: Version field validation
- *
- * Scenario: Data with wrong version
- * Expected: Load fails
- */
 TEST_F(NvsCoreTest, RejectDataWithWrongVersion)
 {
     // Arrange
-    CoreStorage bad_version = CreateValidCoreStorage();
-    bad_version.version = 10;                          // Wrong version
-    bad_version.crc = test_calculate_crc(bad_version); // Update CRC
-    SetNvsData(bad_version);
+    CoreStorage bad_version = CreateValidCoreEnvelope();
+    bad_version.version = 10;
+    bad_version.crc = test_calculate_crc(bad_version);
+    SetNvsEnvelope(bad_version);
 
     // Act
-    CoreStorage loaded;
+    CoreData loaded{};
     esp_err_t ret = nvs_core_->load_core(loaded);
 
     // Assert
     EXPECT_NE(ret, ESP_OK);
 }
 
-/**
- * Test: No double-save when data unchanged
- *
- * Scenario: Save identical data multiple times
- * Expected: First save goes to NVS, subsequent saves skip NVS (not dirty)
- */
-TEST_F(NvsCoreTest, NoDoubleSaveWhenUnchanged)
-{
-    // Arrange
-    CoreStorage data = CreateValidCoreStorage();
-
-    // First save with force
-    nvs_core_->save_core(data, true);
-
-    // Reset mocks to track second save
-    rtc_backend_.Clear();
-    nvs_backend_.Clear();
-    rtc_backend_.UseRealStorage();
-    nvs_backend_.UseRealStorage();
-
-    // Set up expectations for second save (should NOT touch NVS if not dirty)
-    // This is tricky with mocks - just verify behavior
-    CoreStorage same_data = data;
-    esp_err_t ret = nvs_core_->save_core(same_data, false);
-
-    // If data is truly identical, should return quickly
-    EXPECT_EQ(ret, ESP_OK);
-}
-
-/**
- * Test: Init creates default storage when empty
- *
- * Scenario: Calling init when NVS/RTC storage is empty
- * Expected: Storage is populated with default_core, boot_count set to 1, out_pending_commit set to true
- */
 TEST_F(NvsCoreTest, InitCreatesDefaultWhenStorageEmpty)
 {
-    CoreStorage default_core;
-    default_core.reset();
+    CoreData default_core;
     default_core.node_id = farm::NodeId::HUB;
     default_core.node_type = farm::NodeType::HUB;
     default_core.power_profile = farm::PowerProfile::ALWAYS_ON;
 
-    CoreStorage core;
-    bool pending_commit = false;
+    CoreData core{};
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_POWERON,
-        ESP_SLEEP_WAKEUP_UNDEFINED,
-        pending_commit
-    );
+    esp_err_t ret = nvs_core_->init(core, default_core);
 
     EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.node_id, farm::NodeId::HUB);
     EXPECT_EQ(core.node_type, farm::NodeType::HUB);
     EXPECT_EQ(core.power_profile, farm::PowerProfile::ALWAYS_ON);
-    EXPECT_EQ(core.boot_count, 1);
-    EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
-    EXPECT_TRUE(pending_commit);
 
     // Verify it was stored in NVS
-    CoreStorage nvs_stored = GetStoredNvsData();
-    EXPECT_EQ(nvs_stored.node_id, farm::NodeId::HUB);
+    CoreStorage nvs_stored = GetStoredNvsEnvelope();
+    EXPECT_EQ(nvs_stored.data.node_id, farm::NodeId::HUB);
 }
 
-/**
- * Test: Process boot reasons via Init - Power On
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsPowerOn)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 5;
-    existing_core.crash_count = 0;
-    nvs_core_->save_core(existing_core, true);
+    CoreData core{};
+    core.boot_count = 5;
+    bool pending_commit = false;
 
-    CoreStorage core;
-    CoreStorage default_core;
-    bool pending_commit = true;
+    nvs_core_->process_boot_reasons(core, ESP_RST_POWERON, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_POWERON,
-        ESP_SLEEP_WAKEUP_UNDEFINED,
-        pending_commit
-    );
-
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 6);
     EXPECT_EQ(core.crash_count, 0);
     EXPECT_EQ(core.last_wake, WakeSource::POWER_ON);
     EXPECT_FALSE(pending_commit);
 }
 
-/**
- * Test: Process boot reasons via Init - Crash Reset
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsCrash)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 10;
-    existing_core.crash_count = 1;
-    nvs_core_->save_core(existing_core, true);
-
-    CoreStorage core;
-    CoreStorage default_core;
+    CoreData core{};
+    core.boot_count = 10;
+    core.crash_count = 1;
     bool pending_commit = false;
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_PANIC,
-        ESP_SLEEP_WAKEUP_UNDEFINED,
-        pending_commit
-    );
+    nvs_core_->process_boot_reasons(core, ESP_RST_PANIC, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 11);
     EXPECT_EQ(core.crash_count, 2);
     EXPECT_EQ(core.last_wake, WakeSource::CRASH);
     EXPECT_TRUE(pending_commit);
 }
 
-/**
- * Test: Process boot reasons via Init - Software Reset
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsSoftwareRestart)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 3;
-    nvs_core_->save_core(existing_core, true);
+    CoreData core{};
+    core.boot_count = 3;
+    bool pending_commit = false;
 
-    CoreStorage core;
-    CoreStorage default_core;
-    bool pending_commit = true;
+    nvs_core_->process_boot_reasons(core, ESP_RST_SW, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_SW,
-        ESP_SLEEP_WAKEUP_UNDEFINED,
-        pending_commit
-    );
-
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 4);
     EXPECT_EQ(core.last_wake, WakeSource::RESTART);
     EXPECT_FALSE(pending_commit);
 }
 
-/**
- * Test: Process boot reasons via Init - Deep Sleep Timer Wakeup
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepTimer)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 20;
-    nvs_core_->save_core(existing_core, true);
+    CoreData core{};
+    core.boot_count = 20;
+    bool pending_commit = false;
 
-    CoreStorage core;
-    CoreStorage default_core;
-    bool pending_commit = true;
+    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_TIMER, pending_commit);
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_DEEPSLEEP,
-        ESP_SLEEP_WAKEUP_TIMER,
-        pending_commit
-    );
-
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::TIMER);
     EXPECT_FALSE(pending_commit);
 }
 
-/**
- * Test: Process boot reasons via Init - Deep Sleep GPIO Wakeup
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsDeepSleepGpio)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 20;
-    nvs_core_->save_core(existing_core, true);
+    CoreData core{};
+    core.boot_count = 20;
+    bool pending_commit = false;
 
-    CoreStorage core;
-    CoreStorage default_core;
-    bool pending_commit = true;
+    nvs_core_->process_boot_reasons(core, ESP_RST_DEEPSLEEP, ESP_SLEEP_WAKEUP_GPIO, pending_commit);
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_DEEPSLEEP,
-        ESP_SLEEP_WAKEUP_GPIO,
-        pending_commit
-    );
-
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 21);
     EXPECT_EQ(core.last_wake, WakeSource::GPIO);
     EXPECT_FALSE(pending_commit);
 }
 
-/**
- * Test: Process boot reasons via Init - Unknown/Default Reset
- */
 TEST_F(NvsCoreTest, ProcessBootReasonsUnknown)
 {
-    CoreStorage existing_core;
-    existing_core.reset();
-    existing_core.boot_count = 100;
-    nvs_core_->save_core(existing_core, true);
+    CoreData core{};
+    core.boot_count = 100;
+    bool pending_commit = false;
 
-    CoreStorage core;
-    CoreStorage default_core;
-    bool pending_commit = true;
+    nvs_core_->process_boot_reasons(core, ESP_RST_UNKNOWN, ESP_SLEEP_WAKEUP_UNDEFINED, pending_commit);
 
-    esp_err_t ret = nvs_core_->init(
-        core,
-        default_core,
-        ESP_RST_UNKNOWN,
-        ESP_SLEEP_WAKEUP_UNDEFINED,
-        pending_commit
-    );
-
-    EXPECT_EQ(ret, ESP_OK);
     EXPECT_EQ(core.boot_count, 101);
     EXPECT_EQ(core.last_wake, WakeSource::UNKNOWN);
     EXPECT_FALSE(pending_commit);

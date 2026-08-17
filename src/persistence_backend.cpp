@@ -1,6 +1,7 @@
 // nvs_core/src/persistence_backend.cpp
 #include "persistence_backend.hpp"
 
+#include <cstring>
 #include "esp_log.h"
 
 static const char* TAG = "NvsCore PersistenceBackend";
@@ -15,6 +16,8 @@ RtcBackend::RtcBackend(void* storage, size_t size)
 
 esp_err_t RtcBackend::load(void* data, size_t size)
 {
+    if (!data || size == 0)
+        return ESP_ERR_INVALID_ARG;
     if (size > size_)
         return ESP_ERR_INVALID_SIZE;
     memcpy(data, storage_, size);
@@ -23,6 +26,8 @@ esp_err_t RtcBackend::load(void* data, size_t size)
 
 esp_err_t RtcBackend::save(const void* data, size_t size)
 {
+    if (!data || size == 0)
+        return ESP_ERR_INVALID_ARG;
     if (size > size_)
         return ESP_ERR_INVALID_SIZE;
     memcpy(storage_, data, size);
@@ -38,6 +43,9 @@ NvsBackend::NvsBackend(idf_hals::INvsHAL& nvs_hal, const char* nvs_key)
 
 esp_err_t NvsBackend::load(void* data, size_t size)
 {
+    if (!data || size == 0)
+        return ESP_ERR_INVALID_ARG;
+
     esp_err_t err = init_nvs();
     if (err != ESP_OK) {
         return err;
@@ -65,6 +73,9 @@ esp_err_t NvsBackend::load(void* data, size_t size)
 
 esp_err_t NvsBackend::save(const void* data, size_t size)
 {
+    if (!data || size == 0)
+        return ESP_ERR_INVALID_ARG;
+
     esp_err_t err = init_nvs();
     if (err != ESP_OK) {
         return err;
