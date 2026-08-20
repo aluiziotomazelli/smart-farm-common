@@ -43,6 +43,7 @@ enum class PayloadType : uint8_t
     WEATHER_REPORT = 0x03,      ///< Weather sensor data telemetry
     LOAD_CONTROL_STATUS = 0x04, ///< Load operation status and circuit state
     TANK_LEVEL_UPDATE = 0x05,   ///< Tank level update dispatched from Hub to actuators
+    FILL_REQUEST = 0x06,        ///< Operator requests hub to fill tank to 100%
     OTA_STATUS_REPORT = 0x45,   ///< Over-The-Air firmware update outcome report
     REQUEST_TIME_SYNC = 0x46,   ///< Request for time synchronization from the Hub
 };
@@ -88,15 +89,15 @@ enum class BatteryState : uint8_t
 /**
  * @brief Defines who controls the load's switching behavior.
  *
- * Reported by the actuator node in its status payload. In AUTO mode, the
- * actuator requests hub authorization before switching. In MANUAL mode,
- * the actuator acts on the user's physical switch and reports its state.
+ * Reported by the actuator node in its status payload.
  */
 enum class ControlMode : uint8_t
 {
-    OFF = 0x00,    ///< Load is physically off, regardless of source selection
-    AUTO = 0x01,   ///< Hub-managed: actuator requests authorization before switching
-    MANUAL = 0x02, ///< User-controlled: actuator acts independently, reports state to hub
+    UNKNOWN       = 0x00, ///< Uninitialized or unspecified control mode
+    AUTO          = 0x01, ///< Hub-managed: hub picks source and timing
+    SOURCE_LOCKED = 0x02, ///< Hub controls timing; source locked by operator switch
+    STOP_OVERRIDE = 0x03, ///< Operator started immediately; hub can only stop (LOAD_OFF)
+    FULL_MANUAL   = 0x04, ///< Operator controls everything; hub only observes telemetry
 };
 
 /**
@@ -253,15 +254,24 @@ struct LoadOffCommand
 };
 
 /**
+ * @brief Request payload dispatched from actuator node to Hub to request tank filling to 100%.
+ */
+struct FillRequest
+{
+    uint8_t circuit_id; ///< Target pump circuit ID requesting full tank fill
+};
+
+/**
  * @brief Status report sent by actuator nodes regarding load operational state.
  */
 struct LoadControlStatus
 {
     uint8_t circuit_id;                 ///< Circuit identifier
     PowerProfile power_profile;         ///< Current power regime of the node
-    ControlMode control_mode;           ///< Active control mode (AUTO or MANUAL)
-    PowerSource active_power_source;    ///< Currently active power source (SOLAR or GRID)
+    ControlMode control_mode;           ///< Active control mode (AUTO, SOURCE_LOCKED, STOP_OVERRIDE, FULL_MANUAL)
+    PowerSource active_power_source;    ///< Currently active or locked power source
     LoadState load_state;               ///< Current load state (IDLE, RUNNING, ERROR_*)
+    uint16_t power_w;                   ///< Instantaneous power draw in Watts (0 if inactive, nominal or measured if running)
     uint32_t runtime_s;                 ///< Current active cycle runtime in seconds
     uint32_t uptime_s;                  ///< Node lifetime uptime in seconds
 };
@@ -324,6 +334,9 @@ static_assert(
 static_assert(
     sizeof(farm::LoadOffCommand) <= APP_MAX_PAYLOAD_SIZE,
     "LoadOffCommand payload exceeds ESP-NOW payload limit");
+static_assert(
+    sizeof(farm::FillRequest) <= APP_MAX_PAYLOAD_SIZE,
+    "FillRequest payload exceeds ESP-NOW payload limit");
 static_assert(
     sizeof(farm::LoadControlStatus) <= APP_MAX_PAYLOAD_SIZE,
     "LoadControlStatus payload exceeds ESP-NOW payload limit");
