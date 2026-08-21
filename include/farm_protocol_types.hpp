@@ -93,11 +93,11 @@ enum class BatteryState : uint8_t
  */
 enum class ControlMode : uint8_t
 {
-    UNKNOWN       = 0x00, ///< Uninitialized or unspecified control mode
-    AUTO          = 0x01, ///< Hub-managed: hub picks source and timing
+    UNKNOWN = 0x00,       ///< Uninitialized or unspecified control mode
+    AUTO = 0x01,          ///< Hub-managed: hub picks source and timing
     SOURCE_LOCKED = 0x02, ///< Hub controls timing; source locked by operator switch
     STOP_OVERRIDE = 0x03, ///< Operator started immediately; hub can only stop (LOAD_OFF)
-    FULL_MANUAL   = 0x04, ///< Operator controls everything; hub only observes telemetry
+    FULL_MANUAL = 0x04,   ///< Operator controls everything; hub only observes telemetry
 };
 
 /**
@@ -160,9 +160,9 @@ enum class OtaErrorCode : uint8_t
  */
 enum class PowerProfile : uint8_t
 {
-    ALWAYS_ON = 0, ///< Node receiver is continuously active (instant command delivery)
-    LOW_POWER = 1, ///< Node uses modem/light sleep with fast wake intervals
-    DEEP_SLEEP = 2,///< Node powers down radio between measurements (queued commands)
+    ALWAYS_ON = 0,  ///< Node receiver is continuously active (instant command delivery)
+    LOW_POWER = 1,  ///< Node uses modem/light sleep with fast wake intervals
+    DEEP_SLEEP = 2, ///< Node powers down radio between measurements (queued commands)
 };
 
 /**
@@ -170,23 +170,19 @@ enum class PowerProfile : uint8_t
  */
 struct NodeMetadata
 {
-    NodeId          node_id{NodeId::UNKNOWN};
-    PowerProfile    power_profile{PowerProfile::DEEP_SLEEP};
-    uint8_t         fw_major{0};
-    uint8_t         fw_minor{0};
-    uint8_t         fw_patch{0};
+    NodeId node_id{NodeId::UNKNOWN};
+    PowerProfile power_profile{PowerProfile::DEEP_SLEEP};
+    uint8_t fw_major{0};
+    uint8_t fw_minor{0};
+    uint8_t fw_patch{0};
 
-    bool operator==(const NodeMetadata& other) const {
-        return node_id == other.node_id &&
-               power_profile == other.power_profile &&
-               fw_major == other.fw_major &&
-               fw_minor == other.fw_minor &&
-               fw_patch == other.fw_patch;
+    bool operator==(const NodeMetadata& other) const
+    {
+        return node_id == other.node_id && power_profile == other.power_profile && fw_major == other.fw_major &&
+               fw_minor == other.fw_minor && fw_patch == other.fw_patch;
     }
 
-    bool operator!=(const NodeMetadata& other) const {
-        return !(*this == other);
-    }
+    bool operator!=(const NodeMetadata& other) const { return !(*this == other); }
 };
 
 #pragma pack(push, 1)
@@ -213,18 +209,19 @@ struct WaterLevelReport
  */
 struct SolarSensorReport
 {
-    PowerProfile power_profile;   ///< Node energy mode (ALWAYS_ON, LOW_POWER, DEEP_SLEEP)
-    uint16_t isc_current_ma;      ///< Instantaneous short-circuit current in mA (0 - 819 mA)
-    uint16_t irradiance_wm2;      ///< Estimated solar irradiance in W/m² (0 - 1200 W/m²)
-    int16_t  panel_temp_c;        ///< Sensor panel temperature in 0.1 °C resolution (e.g. 255 = 25.5 °C, INT16_MIN if no sensor)
-    uint16_t battery_mv;          ///< Sensor node battery voltage in mV
-    uint8_t  battery_percent;     ///< Sensor node battery percentage level (0-100%)
-    BatteryState battery_state;   ///< Sensor node battery classification
-    SensorStatus status;          ///< Sensor health status (OK, ERROR_HARDWARE, etc.)
-    uint16_t max_current_ma;      ///< Current peak recorded during the current day
-    uint32_t daily_yield_mah;     ///< Accumulated daily current integral in mAh
-    bool     is_night_mode;       ///< Indicates whether the node is in night mode
-    uint64_t unix_time;           ///< UTC Epoch timestamp in ms (0 if not synchronized)
+    PowerProfile power_profile; ///< Node energy mode (ALWAYS_ON, LOW_POWER, DEEP_SLEEP)
+    uint16_t isc_current_ma;    ///< Instantaneous short-circuit current in mA (0 - 819 mA)
+    uint16_t irradiance_wm2;    ///< Estimated solar irradiance in W/m² (0 - 1200 W/m²)
+    int16_t
+        panel_temp_c;    ///< Sensor panel temperature in 0.1 °C resolution (e.g. 255 = 25.5 °C, INT16_MIN if no sensor)
+    uint16_t battery_mv; ///< Sensor node battery voltage in mV
+    uint8_t battery_percent;    ///< Sensor node battery percentage level (0-100%)
+    BatteryState battery_state; ///< Sensor node battery classification
+    SensorStatus status;        ///< Sensor health status (OK, ERROR_HARDWARE, etc.)
+    uint16_t max_current_ma;    ///< Current peak recorded during the current day
+    uint32_t daily_yield_mah;   ///< Accumulated daily current integral in mAh
+    bool is_night_mode;         ///< Indicates whether the node is in night mode
+    uint64_t unix_time;         ///< UTC Epoch timestamp in ms (0 if not synchronized)
 };
 
 /**
@@ -250,7 +247,7 @@ struct LoadOnCommand
  */
 struct LoadOffCommand
 {
-    uint8_t circuit_id;          ///< Target circuit ID to deactivate
+    uint8_t circuit_id; ///< Target circuit ID to deactivate
 };
 
 /**
@@ -266,14 +263,15 @@ struct FillRequest
  */
 struct LoadControlStatus
 {
-    uint8_t circuit_id;                 ///< Circuit identifier
-    PowerProfile power_profile;         ///< Current power regime of the node
-    ControlMode control_mode;           ///< Active control mode (AUTO, SOURCE_LOCKED, STOP_OVERRIDE, FULL_MANUAL)
-    PowerSource active_power_source;    ///< Currently active or locked power source
-    LoadState load_state;               ///< Current load state (IDLE, RUNNING, ERROR_*)
-    uint16_t power_w;                   ///< Instantaneous power draw in Watts (0 if inactive, nominal or measured if running)
-    uint32_t runtime_s;                 ///< Current active cycle runtime in seconds
-    uint32_t uptime_s;                  ///< Node lifetime uptime in seconds
+    uint8_t circuit_id;              ///< Circuit identifier
+    PowerProfile power_profile;      ///< Current power regime of the node
+    ControlMode control_mode;        ///< Active control mode (AUTO, SOURCE_LOCKED, STOP_OVERRIDE, FULL_MANUAL)
+    PowerSource active_power_source; ///< Currently active or locked power source
+    LoadState load_state;            ///< Current load state (IDLE, RUNNING, ERROR_*)
+    uint16_t power_w;   ///< Instantaneous power draw in Watts (0 if inactive, nominal or measured if running)
+    uint32_t runtime_s; ///< Current active cycle runtime in seconds
+    uint32_t uptime_s;  ///< Node lifetime uptime in seconds
+    uint64_t unix_time; ///< UTC Epoch timestamp in ms (0 if not synchronized)
 };
 
 /**
@@ -281,8 +279,8 @@ struct LoadControlStatus
  */
 struct TankLevelUpdate
 {
-    uint8_t tank_id;          ///< Target tank ID
-    uint16_t level_permille;  ///< Current water level in permille (0 to 1000)
+    uint8_t tank_id;         ///< Target tank ID
+    uint16_t level_permille; ///< Current water level in permille (0 to 1000)
 };
 
 /**
@@ -303,11 +301,11 @@ struct TimeSyncCommand
 struct OtaStatusReport
 {
     PowerProfile power_profile; ///< Current power regime of the node
-    OtaExecResult result;    ///< Execution result of the OTA process
-    OtaErrorCode error_code; ///< Detailed error reason (NONE if success)
-    uint8_t fw_major;        ///< Running firmware major version number
-    uint8_t fw_minor;        ///< Running firmware minor version number
-    uint8_t fw_patch;        ///< Running firmware patch version number
+    OtaExecResult result;       ///< Execution result of the OTA process
+    OtaErrorCode error_code;    ///< Detailed error reason (NONE if success)
+    uint8_t fw_major;           ///< Running firmware major version number
+    uint8_t fw_minor;           ///< Running firmware minor version number
+    uint8_t fw_patch;           ///< Running firmware patch version number
 };
 
 #pragma pack(pop)
@@ -334,9 +332,7 @@ static_assert(
 static_assert(
     sizeof(farm::LoadOffCommand) <= APP_MAX_PAYLOAD_SIZE,
     "LoadOffCommand payload exceeds ESP-NOW payload limit");
-static_assert(
-    sizeof(farm::FillRequest) <= APP_MAX_PAYLOAD_SIZE,
-    "FillRequest payload exceeds ESP-NOW payload limit");
+static_assert(sizeof(farm::FillRequest) <= APP_MAX_PAYLOAD_SIZE, "FillRequest payload exceeds ESP-NOW payload limit");
 static_assert(
     sizeof(farm::LoadControlStatus) <= APP_MAX_PAYLOAD_SIZE,
     "LoadControlStatus payload exceeds ESP-NOW payload limit");
