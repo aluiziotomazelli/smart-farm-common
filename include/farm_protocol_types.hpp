@@ -279,8 +279,10 @@ struct LoadControlStatus
  */
 struct TankLevelUpdate
 {
-    uint8_t tank_id;         ///< Target tank ID
-    uint16_t level_permille; ///< Current water level in permille (0 to 1000)
+    uint8_t tank_id;           ///< Target tank ID
+    uint16_t level_permille;   ///< Current water level in permille (0 to 1000)
+    bool backup_mode_active;   ///< True if tank is operating in backup mode (float switch only)
+    bool float_switch_is_full; ///< True if mechanical float switch indicates full tank
 };
 
 /**
