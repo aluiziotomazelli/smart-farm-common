@@ -5,6 +5,7 @@ idf_component_register(
         "src/nvs_core.cpp"
         "src/persistence_backend.cpp"
         "src/led_controller.cpp"
+        "src/sun_schedule.cpp"
     INCLUDE_DIRS
         "include"
         "include/interfaces"
