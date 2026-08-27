@@ -35,10 +35,17 @@ public:
         float latitude_deg = DEFAULT_LATITUDE_DEG,
         float tz_offset_hours = DEFAULT_TZ_OFFSET_HOURS);
 
-    /**
-     * @brief Updates location and timezone parameters.
-     */
     void set_location(float latitude_deg, float tz_offset_hours);
+
+    /**
+     * @brief Gets current geographical latitude in degrees.
+     */
+    float get_latitude_deg() const { return latitude_deg_; }
+
+    /**
+     * @brief Gets current local timezone offset in hours.
+     */
+    float get_tz_offset_hours() const { return tz_offset_hours_; }
 
     /**
      * @brief Calculates astronomical day parameters for a given Unix timestamp.
