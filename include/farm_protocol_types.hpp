@@ -87,30 +87,32 @@ enum class BatteryState : uint8_t
 };
 
 /**
- * @brief Defines who controls the load's switching behavior.
+ * @brief Defines who governs the load's operational lifecycle.
  *
  * Reported by the actuator node in its status payload.
+ * Determines the Hub's level of authority over the load.
  */
 enum class ControlMode : uint8_t
 {
-    UNKNOWN = 0x00,       ///< Uninitialized or unspecified control mode
-    AUTO = 0x01,          ///< Hub-managed: hub picks source and timing
-    SOURCE_LOCKED = 0x02, ///< Hub controls timing; source locked by operator switch
-    STOP_OVERRIDE = 0x03, ///< Operator started immediately; hub can only stop (LOAD_OFF)
-    FULL_MANUAL = 0x04,   ///< Operator controls everything; hub only observes telemetry
+    UNKNOWN     = 0x00, ///< Uninitialized or unspecified control mode
+    AUTO        = 0x01, ///< Hub-managed: hub controls timing (respecting selected_source for source constraint)
+    MANUAL_RUN  = 0x02, ///< Operator started locally via button; Hub only stops for safety (tank full, emergency)
+    FULL_MANUAL = 0x03, ///< Bypass/maintenance: Hub observes telemetry only, never actuates
 };
 
 /**
- * @brief Defines the energy source circuit a load is connected to.
+ * @brief Identifies a power source selection or the physical switch position.
  *
- * Only meaningful when ControlMode != OFF. SOLAR loads are counted in the
- * hub's power balance. GRID loads are monitored for display/log only.
+ * Used both for reporting the physical 3-position switch state (selected_source)
+ * and the currently engaged contactor (active_source).
+ * When used as active_source, AUTO is not valid — only UNKNOWN, SOLAR, or GRID.
  */
 enum class PowerSource : uint8_t
 {
-    UNKNOWN = 0x00, ///< Source not yet determined (initial state or actuator not paired)
-    SOLAR = 0x01,   ///< Connected to solar/inverter circuit
-    GRID = 0x02,    ///< Connected to utility grid circuit (fallback)
+    UNKNOWN = 0x00, ///< Not initialized, no contactor engaged, or load is off
+    AUTO    = 0x01, ///< Switch in AUTO position: Hub decides source dynamically
+    SOLAR   = 0x02, ///< Solar/inverter bus
+    GRID    = 0x03, ///< Utility grid bus
 };
 
 /**
@@ -265,8 +267,9 @@ struct LoadControlStatus
 {
     uint8_t circuit_id;              ///< Circuit identifier
     PowerProfile power_profile;      ///< Current power regime of the node
-    ControlMode control_mode;        ///< Active control mode (AUTO, SOURCE_LOCKED, STOP_OVERRIDE, FULL_MANUAL)
-    PowerSource active_power_source; ///< Currently active or locked power source
+    ControlMode control_mode;        ///< Active control mode (AUTO, MANUAL_RUN, FULL_MANUAL)
+    PowerSource selected_source;     ///< Physical switch position (AUTO, SOLAR, GRID)
+    PowerSource active_source;       ///< Contactor currently engaged (UNKNOWN, SOLAR, GRID)
     LoadState load_state;            ///< Current load state (IDLE, RUNNING, ERROR_*)
     uint16_t power_w;   ///< Instantaneous power draw in Watts (0 if inactive, nominal or measured if running)
     uint32_t runtime_s; ///< Current active cycle runtime in seconds
